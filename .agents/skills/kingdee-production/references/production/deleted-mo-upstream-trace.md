@@ -1,0 +1,55 @@
+# 已删生产订单的上游销售订单溯源（MO → XSDD）
+
+`PRD_MO` 物理删除后，上游 `XSDD` 无法从现库直接反查的条件与候选法（2026-08-31 MO260826047 全流程实测）。
+
+## 为什么查不到
+
+| 现象 | 验证 SQL / 结果 |
+|---|---|
+| `T_PRD_MO` 物理删 | `SELECT ... WHERE FID=124820` 0行，`ViewBill PRD_MO 124820` 报“数据不存在” |
+| `T_PRD_MOENTRY` 级联删 | `SELECT ... WHERE FID=124820` 0行，`FSALEORDERID/FSALEORDERNO` 丢失 |
+| `T_PRD_MOENTRY_LK` 级联删 | `WHERE FENTRYID IN (SELECT FENTRYID FROM T_PRD_MOENTRY WHERE FID=124820)` 0行；`FRULEID='PRD_SALEORDER2MO'` 最新记录不含被删 MO |
+| `T_SAL_ORDERENTRY.FMTONO` 空 | `WHERE FMTONO='MO260826047'` 0行；`WHERE FMTONO<>''` 全空 |
+| `Z_PRD_MO/*` 空 | `SELECT COUNT(*) FROM Z_PRD_MO` 0 |
+| `T_BAS_OPERATELOG` 未记 XSDD | 对 `MO260826047` 只有工序计划/保存/审核/反审核/删除，无 XSDD |
+| `fn_dblog` 已截断 | 活跃日志最新 BEGIN_XACT 17:09，16:53 删除不在当前日志；且 FSALEORDER 为整数 FK，搜 `58534444` 无效 |
+
+## 候选法（只读，不编造）
+
+### 优先：按晶圆批号/个性化备注精准定位（2026-08-31 截图线索实测）
+生产订单截图的 `F_UNW_TEXT_QTR` 超长报错暴露了晶圆批号 `260523D00766`，直接搜销售订单备注：
+```sql
+SELECT FID, FBILLNO, FENTRYID, LEN(FNOTE), LEFT(FNOTE,100)
+FROM T_SAL_ORDERENTRY WHERE FNOTE LIKE '%260523D00766%';
+-- 实测命中 5 张：XSDD034994(26D15995,255)/034995(26D16000,250)/034996(26D16005,252)/034997(26D16006)/034998(26D16010)
+-- 客户 CTK000921 浙江摩珂达，物料 NBQ0130323 (MKD2M500065GA)，FQTY=30.722
+```
+比按日期拉 57 张更准，且直接解释了 `T_SFC_OPERPLANNING.F_UNW_TEXT_QTR(250)` 的 255/252 超长保存失败。
+
+### 次选：按 MO.FDATE 拉当天候选
+1. 按 `MO.FDATE` 定天（如 `2026-08-26`）拉 `T_SAL_ORDER + ENTRY + BD_MATERIAL`：
+```sql
+SELECT SO.FBILLNO, SO.FID, M.FNUMBER, SE.FQTY
+FROM T_SAL_ORDER SO LEFT JOIN T_SAL_ORDERENTRY SE ON SE.FID=SO.FID
+LEFT JOIN T_BD_MATERIAL M ON M.FMATERIALID=SE.FMATERIALID
+WHERE SO.FDATE='2026-08-26T00:00:00.000Z' AND SE.FMATERIALID IS NOT NULL
+ORDER BY SO.FBILLNO, SE.FSEQ;
+```
+2. 用 `T_PRD_MOENTRY.FSALEORDERID` 排除已关联：
+```sql
+SELECT DISTINCT FSALEORDERID FROM T_PRD_MOENTRY WHERE FSALEORDERID IN (...所有SO_FID...)
+-- 未命中即候选（被删的 3 张必在候选集）
+```
+3. 实测 2026-08-26 共 57 张 SO，34 个 SO_FID，去重后 13 张已关联、20 张未关联，把候选表（单号/客户FCUSTID/物料/数量/状态）给用户按客户/物料勾选。
+
+## 替代路径
+
+- **金蝶前端最准**：`销售订单列表 → 过滤 FDATE=2026-08-26 且 FDOCUMENTSTATUS=C 且未下推` 或 `BOS_回收站` 搜 `MO260826047`。
+- 确认 3 个 `XSDD` 后，用 `Push(SAL_SaleOrder → PRD_MO, RuleId=PRD_SALEORDER2MO)` 重下推草稿，回查 `FID/FBillNo`。
+
+## 坑位
+
+- 不要按 `T_SAL_ORDER.FMODIFYDATE ≈ 16:53` 猜 3 张，修改时间分散（16:33/16:39/16:49/16:50）不聚焦。
+- 不要用 `T_SAL_ORDERTRACE`（本账套 0行）或 `FMTONO`。
+- 候选法只能缩小到 ~20 张（按批号可到 5 张），不能直接定 3 张；必须让用户按业务确认。
+- 备注超长（250-255）下推前必须截断或扩字段，否则 `T_SFC_OPERPLANNING.F_UNW_TEXT_QTR(250)` 直接失败。

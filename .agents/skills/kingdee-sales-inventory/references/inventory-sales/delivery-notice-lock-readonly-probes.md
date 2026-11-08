@@ -1,0 +1,34 @@
+# 发货通知单锁库状态只读探针（2026-09-03 FHTZD056439 实测）
+
+## 待锁清单（与 ctk 插件 `fetchUnlockedDeliveryNotices` 同口径）
+
+```sql
+SELECT h.FID, h.FBILLNO, e.FENTRYID, e.FQTY
+FROM T_SAL_DELIVERYNOTICE h
+JOIN T_SAL_DELIVERYNOTICEENTRY e ON h.FID = e.FID
+WHERE h.FCREATORID = 111677        -- 商务员A
+  AND h.FDOCUMENTSTATUS = 'C'
+  AND e.FLOCKSTOCKFLAG = '0'
+  AND h.FDATE >= DATEADD(day, -2, GETDATE())
+ORDER BY h.FID, e.FENTRYID;
+```
+
+单据行状态：`FLOCKSTOCKFLAG` / `FLOCKSTOCKBASEQTY` 在 `T_SAL_DELIVERYNOTICEENTRY` 上。
+
+## 下游关联（判断反审核会不会被拦）
+
+`T_SAL_DELIVERYNOTICEENTRY_LK` **没有 `FID` 列**，关联键是 `FSBILLID`（源单 FID）/ `FSID`：
+
+```sql
+DECLARE @fid INT = (SELECT FID FROM T_SAL_DELIVERYNOTICE WHERE FBILLNO = 'FHTZD056439');
+SELECT FSTABLENAME, FSBILLID, FSID, FENTRYID, FBASEUNITQTY
+FROM T_SAL_DELIVERYNOTICEENTRY_LK WHERE FSBILLID = @fid;
+```
+
+空结果 = 无下推单，反审核一般不会被下游拦。另有 `T_SAL_DELIVERYNOTICETRACE` 可交叉。
+
+## 连接坑（mssql/tedious 直连 SQL Server）
+
+- 主机是 IP + `encrypt:true` 时，必须传 `options.serverName`（取 `NUXT_SQLSERVER_K3_TLS_SERVER_NAME`），否则 `Setting the TLS ServerName to an IP address is not permitted`。
+- 账号键优先 `TK_SQLSERVER_USERNAME/PASSWORD`（`NUXT_SQLSERVER_K3_USER` 可能为空）。
+- 猜列名必先 `INFORMATION_SCHEMA` 核对：`T_BD_MATERIAL` 没有 `FBASEUNITID/FNAME/FSALEUNITID` 这几个直觉列名；`T_SAL_OUTSTOCKENTRY` 没有 `FQTY`。

@@ -1,0 +1,37 @@
+# Local credentials and environment files
+/k3cloud.local.json
+.env
+.env.*
+!.env.example
+
+# Dependencies and generated output
+/node_modules/
+**/node_modules/
+**/lo-profile/
+/output/
+/logs/
+/agent-tools/
+/input/
+
+# Operational scratch, private cases, and data exports
+/.agents/private/
+/scripts/cases/
+/scripts/bun_test/
+/scripts/scratch/
+*.xlsx
+*.xls
+*.csv
+*.tsv
+*.sql
+*.bak
+*.dump
+*.log
+*.jsonl
+.DS_Store
+Thumbs.db
+
+# Legacy output locations and Python caches
+/outputs/
+/tmp/
+__pycache__/
+*.py[cod]

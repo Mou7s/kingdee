@@ -1,0 +1,28 @@
+{
+  "name": "kingdee",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "login": "bun login_k3cloud.js",
+    "search-bill": "bun scripts/tools/search_bill.js",
+    "list-employees": "bun scripts/tools/list_employees.js",
+    "create-employee": "bun scripts/tools/create_employee.js",
+    "rebind-user-link": "bun scripts/tools/rebind_user_link.js",
+    "rename-user-display": "bun scripts/tools/rename_user_display.js",
+    "delete-sfc": "bun scripts/tools/delete_sfc_plan.js",
+    "unfreeze-customer": "bun scripts/tools/unfreeze_customer.js",
+    "uncancel-report": "bun scripts/tools/uncancel_operation_report.js",
+    "test:safety": "bun scripts/tests/_test_ap_safety.js",
+    "auto-lock-dn": "bun scripts/tools/auto_lock_delivery_notice.js",
+    "check-patch": "bun scripts/tools/check_patch_prereq.js",
+    "verify-patch": "bun scripts/tools/verify_after_patch.js",
+    "backup-foshan": "bun scripts/tools/setup_backup_job_foshan.js",
+    "optimize-backup": "bun scripts/tools/optimize_backup_jobs.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "mssql": "^12.7.0",
+    "mysql2": "^3.22.5",
+    "xlsx": "^0.18.5"
+  }
+}
