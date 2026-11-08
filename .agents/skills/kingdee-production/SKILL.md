@@ -36,11 +36,11 @@ description: >-
 
 ## 参考索引
 
-- `references/production/delete-sfc-plan.md` — delete-sfc-plan
+- `references/production/delete-sfc-plan.md` — 生产订单下工序计划（`SFC_OperationPlanning`）反审核、反开工与删除流程
 - `references/production/deleted-mo-upstream-trace.md` — 已删生产订单的上游销售订单溯源
 - `references/production/mo-close-date-validation.md` — 生产订单结案日期校验
-- `references/production/mo-fragmentation-diagnosis.md` — 生产订单碎片化
-- `references/production/mo-status-machine-and-reverse-audit.md` — 生产订单分录业务状态枚举与执行/反执行操作编码、从 `T_META_OBJECTTYPE.FKERNELXML` 枚举操作的正则坑、反审核前置与“工序计划状态受限”阻塞的只读比对与候选验证顺序、失败日志边界、`FDATETIME` 时区自检、并发写判断、反关闭被拒原文与日志查法、受托收料单 STK_OEMReceive 入满自动关闭机制、STK_OEMINSTOCK/BOM 分录字段坑、从下游倒推与库存流向核对
+- `references/production/mo-fragmentation-diagnosis.md` — 生产订单碎片化诊断
+- `references/production/mo-status-machine-and-reverse-audit.md` — 生产订单分录业务状态机、反执行/反审核受阻排查与下游受托收料联动核对
 - `references/production/operation-control-code-mismatch.md` — 工序计划汇报控制码与工艺路线不一致
 - `references/production/operation-plan-machine-query.md` — 工序计划机台号筛查
 - `references/production/operation-plan-trace.md` — 按工序计划号 `TX...` 追踪生产→汇报→转移→结算→应付全链路
@@ -54,4 +54,4 @@ description: >-
 
 ## 本地私有档案（不纳入公开 Git）
 
-- `.agents/private/kingdee-production/` — 厂内特定工单修复案例、公司生产交付画像与历史入口摘录，仅供本地环境读取。
+- `.agents/private/kingdee-production/INDEX.md` — 厂内特定工单修复案例、公司生产交付画像与历史入口摘录索引，仅供本地环境读取。

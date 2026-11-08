@@ -13,7 +13,7 @@
  *   ... --apply 真实写入（Save → Submit → Audit → 独立 View 回查）
  */
 
-import { K3CloudWebAPI } from "../../k3cloud.js";
+import { K3CloudWebAPI } from "../../lib/k3/index.js";
 
 const args = process.argv.slice(2);
 const get = (flag, dflt) => {

@@ -1,5 +1,5 @@
 // 技能合规审计：对齐 Agent Skills 最佳实践。用法：
-//   bun scripts/audit_skills.js <skill-dir>       例如 .agents/skills/kingdee-k3cloud
+//   bun scripts/tools/audit_skills.js <skill-dir>       例如 .agents/skills/kingdee-k3cloud
 // 全部通过 exit 0；有违规 exit 1（可用于提交前门禁）。
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve, basename } from "node:path";

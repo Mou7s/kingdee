@@ -27,11 +27,11 @@
 
 ## 组装拆卸单查询与滥用诊断
 
-先读 `../kingdee-sales-inventory/references/system/assembly-bill-audit.md`（字段键、诊断指标、误用与替代方案对照表）。
+先读 `../kingdee-sales-inventory/references/inventory-sales/assembly-bill-audit.md`（字段键、诊断指标、误用与替代方案对照表）。
 
 ## 成本核算取数与成本报表
 
-回答“现在成本怎么算的”、或做按维度（封装/分组/客户/期间）汇总的成本报表时，先读 `../kingdee-finance/references/system/cost-accounting-period-probe.md`（配置/期间探针见 §1–§7，当期金额真源与报表 recipe 见 §8）。两条铁规则：① 期间 id 永不硬编码——用 `T_HS_OUTSTOCKACCTGDATA` 的 `MIN/MAX(FBILLDATEFIELD)`+`FACCTGSTARTDATE` 锚定后再取数；② CB 成本计算当前表的本期列 `FCURR*` 关账结转后清零，不能当“某期本期数”用。
+回答“现在成本怎么算的”、或做按维度（封装/分组/客户/期间）汇总的成本报表时，先读 `../kingdee-finance/references/finance/cost-accounting-period-probe.md`（配置/期间探针见 §1–§7，当期金额真源与报表 recipe 见 §8）。两条铁规则：① 期间 id 永不硬编码——用 `T_HS_OUTSTOCKACCTGDATA` 的 `MIN/MAX(FBILLDATEFIELD)`+`FACCTGSTARTDATE` 锚定后再取数；② CB 成本计算当前表的本期列 `FCURR*` 关账结转后清零，不能当“某期本期数”用。
 
 ## 读金蝶社区文档（vip.kingdee.com）
 
@@ -47,7 +47,7 @@
 
 ## 按参照新建成品 BOM：完整性门槛
 
-用户要求按同类物料建 BOM、补简称/文件编码/工艺路线，或问“其他东西没漏吗”时，先读 `../kingdee-materials-bom/references/system/bom-create-template-completeness.md`。新建前必须列出模板表头、自定义字段、材料与替代关系的完整映射；不能只核对材料用量就宣布完成。简称、关联文件编码、文件编码文本、默认工艺路线必须分别检查，字段键未定位时继续查扩展元数据，不得静默省略。保存后对全部业务字段逐项比对，明确合理差异与未验证限制。本类任务出现漏项或用户纠正时，收尾主动判断并更新已有技能，无需等用户提醒；不为普通无新发现的任务强增案例。
+用户要求按同类物料建 BOM、补简称/文件编码/工艺路线，或问“其他东西没漏吗”时，先读 `../kingdee-materials-bom/references/materials/bom-create-template-completeness.md`。新建前必须列出模板表头、自定义字段、材料与替代关系的完整映射；不能只核对材料用量就宣布完成。简称、关联文件编码、文件编码文本、默认工艺路线必须分别检查，字段键未定位时继续查扩展元数据，不得静默省略。保存后对全部业务字段逐项比对，明确合理差异与未验证限制。本类任务出现漏项或用户纠正时，收尾主动判断并更新已有技能，无需等用户提醒；不为普通无新发现的任务强增案例。
 
 ## 物料规格型号（FSpecification）等主数据字段修改
 

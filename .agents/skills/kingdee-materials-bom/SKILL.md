@@ -21,7 +21,7 @@ description: >-
 
 - `references/materials/material-scope-invariants.md`
 - `references/materials/material-create.md`
-- `references/system/bom-create-template-completeness.md`
+- `references/materials/bom-create-template-completeness.md`
 
 ## 相邻能力
 
@@ -46,25 +46,25 @@ description: >-
 - `references/materials/bom-scope-discovery.md` — 跨产品族 BOM 范围发现与分类
 - `references/materials/bom-unaudit-and-delete.md` — BOM 反审核与删除流程及下游安全检查
 - `references/materials/bom-usage-and-batch-update.md` — BOM 用量修改流程与 PDFN3 分类
-- `references/materials/bom_webapi_queries.md` — bom_webapi_queries
+- `references/materials/bom_webapi_queries.md` — `ENG_BOM` WebAPI 分录平铺字段查询、子件筛选与禁用统计
+- `references/materials/bom-create-template-completeness.md` — 按参照新建成品 BOM 的表头/子件/替代关系完整性核对门槛
+- `references/materials/hardware-group-disambiguation.md` — 五金/厂务类物料分组判定
 - `references/materials/lead-frame-10501-pattern.md` — 10501 铜框架建料
 - `references/materials/lm-bom-health-scan.md` — 蓝膜 BOM 体检
-- `references/materials/lm-bom-parent-requirements.md` — 蓝膜 BOM
+- `references/materials/lm-bom-parent-requirements.md` — 蓝膜 BOM 父项主产品与属性要求
 - `references/materials/material-aux-property.md` — 物料辅助属性
 - `references/materials/material-batch-fix-external.md` — 外购 N 料批号补齐
 - `references/materials/material-classification.md` — 物料分类核对参考
-- `references/materials/material-create.md` — 建料
+- `references/materials/material-create.md` — 通用与分品类建料流程及重码预检
 - `references/materials/material-group-selection.md` — 物料分组选择
 - `references/materials/material-master-data-edits.md` — 修改规格时读取
 - `references/materials/material-pair-rules.md` — 成对物料与前缀分类核对
 - `references/materials/material-rename.md` — 物料改名/改规格最小字段 Save
-- `references/materials/material-scope-invariants.md` — 建料时读取
+- `references/materials/material-scope-invariants.md` — 建料时必读的范围与前置不变量（黑胶封装、单双芯等）
 - `references/materials/material-spec-batch-rename.md` — 物料规格批量改名
 - `references/materials/package-diagram-material-boundary.md` — 封装结构图与建料边界
 - `references/materials/pdfn-copper-batch-write-boundaries.md` — PDFN 铜线批量修改边界与验证清单
-- `references/system/bom-create-template-completeness.md` — bom-create-template-completeness
-- `references/system/hardware-group-disambiguation.md` — 五金/厂务类物料分组判定
 
 ## 本地私有档案（不纳入公开 Git）
 
-- `.agents/private/kingdee-materials-bom/` — 厂内特定客户/晶圆厂配对建料模式、料号谱系与历史入口摘录，仅供本地环境读取。
+- `.agents/private/kingdee-materials-bom/INDEX.md` — 厂内特定客户/晶圆厂配对建料模式（17 篇）、料号谱系与历史入口摘录索引，仅供本地环境读取。

@@ -48,3 +48,7 @@ description: >-
 - `references/procurement/subcontract-return-mtrl.md` — 委外领料 SUB_PickMtrl 已审核退料
 - `references/procurement/supplier-reconnaissance.md` — 供应商核查
 - `references/procurement/supplier-supply-classify.md` — 供应商供应类别枚举与 G026 案例
+
+## 本地私有档案（不纳入公开 Git）
+
+- `.agents/private/raw-cases/kingdee-procurement/` — 采购、委外与受托加工相关的本地未脱敏原始案例备份，仅供本地环境追溯。

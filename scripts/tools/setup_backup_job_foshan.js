@@ -10,12 +10,12 @@
  * - 清理步骤只针对该独立目录，不会碰主账套的备份。
  */
 import sql from "mssql";
-import { K3_DB_HOST, K3_DB_USER, K3_DB_PASS } from "../../k3cloud.js";
+import { K3_DB_HOST, K3_DB_USER, K3_DB_PASS, K3_FS_DB } from "../../lib/k3/index.js";
 
 const APPLY = process.argv.includes("--apply");
 const JOB = process.env.K3_SUB_BACKUP_JOB || "分厂账套-每日完整备份";
 const SCHED = process.env.K3_SUB_BACKUP_SCHED || "分厂账套-每日0000";
-const DB = process.env.K3_SUB_DB || "";
+const DB = process.env.K3_SUB_DB || K3_FS_DB || "";
 const DIR = process.env.K3_SUB_BACKUP_DIR || "D:\\正式数据备份\\分厂账套";
 const KEEP_DAYS = 15;
 if (!DB) {

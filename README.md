@@ -6,10 +6,11 @@
 
 ## 快速开始
 
-运行环境需要 Bun、能够访问金蝶内网或外网地址的网络，以及已有的项目访问权限。凭据不写入 README、示例和运行输出；连接配置沿用项目现有私有配置，具体约定见 `.agents/skills/kingdee-k3cloud/references/system/project-conventions.md`。
+运行环境需要 Bun、能够访问金蝶内网或外网地址的网络，以及已有的项目访问权限。凭据保存在本地未跟踪的 `k3cloud.local.json`（参考 `k3cloud.local.example.json`），不写入 README、示例和运行输出；具体约定见 `.agents/skills/kingdee-k3cloud/references/system/project-conventions.md`。
 
 ```bash
 bun install
+cp k3cloud.local.example.json k3cloud.local.json   # 首次初始化本地凭据（已配置可跳过）
 bun run test:safety
 bun run login
 bun run search-bill -- MO260428041
@@ -25,25 +26,27 @@ bun run search-bill -- MO260428041
 | --- | --- | --- |
 | `bun run login` | 登录金蝶并验证连接 | 不修改业务数据 |
 | `bun run search-bill -- <关键词>` | 跨采购、应付、生产、工序、销售、库存等表单查单 | 只读 |
-| `bun run delete-sfc -- <生产订单号>` | 预览指定生产订单下的工序计划 | dry-run |
-| `bun run delete-sfc -- <生产订单号> --apply` | 按已确认范围删除工序计划 | 写入/删除 |
-| `bun run unfreeze-customer -- <客户编码>` | 查看客户冻结状态及拟修改内容 | dry-run |
-| `bun run unfreeze-customer -- <客户编码> --apply` | 执行客户解冻工具的更新 | 写入 |
-| `bun run uncancel-report -- <工序汇报单号>` | 查看工序汇报单作废状态及拟反作废内容 | dry-run |
-| `bun run uncancel-report -- <工序汇报单号> --apply` | 执行工序汇报单反作废（`UnCancel`，B→A，不改单据状态） | 写入 |
-| `bun run test:safety` | 校验 `AP_PAYABLE` 的客户端安全拦截 | 本地测试 |
+| `bun run delete-sfc -- <生产订单号>` | 预览/删除指定生产订单下的工序计划 | dry-run（`--apply` 才删除） |
+| `bun run unfreeze-customer -- <客户编码>` | 预览/执行客户解冻更新 | dry-run（`--apply` 才写入） |
+| `bun run uncancel-report -- <工序汇报单号>` | 预览/执行工序汇报单反作废（`UnCancel`，B→A，不改单据状态） | dry-run（`--apply` 才写入） |
+| `bun run auto-lock-dn` | 预览/执行发货通知单自动锁库 | dry-run（`--apply` 才锁库） |
+| `bun run list-employees` | 查询员工主数据列表 | 只读 |
+| `bun run create-employee` | 预览/新增员工主数据（`BD_Empinfo`） | dry-run（`--apply` 才写入） |
+| `bun run rebind-user-link` | 预览/执行金蝶用户与员工联系对象重绑 | dry-run（`--apply` 才写入） |
+| `bun run rename-user-display` | 预览/修改金蝶用户显示名称与部门 | dry-run（`--apply` 才写入） |
 | `bun run check-patch` | 打补丁前采集版本/补丁记录/单据量基线，存 `output/patch_baseline_*.json` | 只读 |
 | `bun run verify-patch` | 打补丁后与基线对比，逐项判定补丁是否生效 | 只读 |
-| `bun run backup-foshan` | 查看/创建分厂账套账套的每日备份作业（含保留 15 天清理） | dry-run（`--apply` 才创建） |
+| `bun run backup-foshan` | 查看/创建分厂账套的每日备份作业（含保留 15 天清理） | dry-run（`--apply` 才创建） |
 | `bun run optimize-backup` | 查看/执行备份体系优化（压缩、清理频率、system 库备份、备份体检作业） | dry-run（`--apply` 才执行） |
+| `bun run test:safety` | 校验 `AP_PAYABLE` 的客户端安全拦截 | 本地测试 |
 
 `scripts/tools/` 保存可重复使用的工具；固定单号、固定期间和历史修复脚本归入 `scripts/cases/`。目录归类不代表脚本已经通过业务安全验证。使用前先阅读脚本头部、确认目标单据和写入方式；带有固定单号、SQL `UPDATE/INSERT/DELETE` 或无 dry-run 的脚本，按个案工具处理。
 
 ## 安全边界
 
-- `AP_PAYABLE` 财务应付单只能通过 `Save` 保存为草稿，禁止 `Submit`、`Audit`、启动工作流或执行同类提交审核操作；由用户在金蝶前端复核后处理。`k3cloud.js` 已在客户端层拦截相关请求。
+- `AP_PAYABLE` 共用表单按实时 `FSETACCOUNTTYPE` 区分：类型 `3` 财务应付单只能通过 `Save` 保存为草稿，禁止 `Submit`、`Audit`、启动工作流或执行同类提交审核操作（由用户在金蝶前端复核后处理）；类型 `2` 暂估应付可在明确授权范围内处理，未知或混合类型禁止提交审核。`k3cloud.js` 已在客户端层拦截相关请求。
 - 写操作工具默认 dry-run，只有显式 `--apply` 才进入执行分支；`--apply` 不是业务授权的替代品。
-- 对正式业务单据不得擅自用 SQL 修改、插入或物理删除。SQL 查询可用于取证；SQL 写入仅能在明确的、逐案授权的历史脏数据处理场景中进行，并须记录范围、前值、后值和复核结果。
+- 对正式业务单据不得擅自用 SQL 修改、插入或物理删除（`AGENTS.md` 明确限定的客户解冻四字段例外除外）。SQL 查询可用于取证；其他 SQL 写入仅能在明确的、逐案授权的历史脏数据处理场景中进行，并须记录范围、前值、后值和复核结果。
 - 不根据单据号、物料名称或历史案例臆造固定的物料转换、仓位、仓库、供应商或数量映射。业务规则有分歧时，先取得业务确认和可审计的原因。
 
 ## 推荐处理顺序
@@ -100,30 +103,39 @@ console.log(rows);
 
 ## 技能与参考索引
 
-项目约定、字段手册、操作流程和案例统一保存在 `.agents/skills/`，由技能入口按需读取。
+项目约定、字段手册、操作流程和案例统一保存在 `.agents/skills/`，由技能入口按需读取；本地专属配对模式与未脱敏档案保存在 `.agents/private/`（含各领域 `INDEX.md`，不纳入 Git）。
 
-- [AGENTS.md](AGENTS.md)：Agent 和开发者必须遵守的安全、调查、写入和复核规则
-- [项目约定与优化决策](.agents/skills/kingdee-k3cloud/references/system/project-conventions.md)：目录、脚本晋升和既有兼容约定
-- [常用表单 ID](.agents/skills/kingdee-k3cloud/references/system/k3cloud-form-ids.md)：K3 Cloud 业务对象 ID
-- [常用字段参考](.agents/skills/kingdee-k3cloud/references/system/k3cloud-fields-reference.md)：已验证字段及应付单限制
-- [技能参考：通用查单](.agents/skills/kingdee-k3cloud/references/system/search-bill.md)
-- [技能参考：删除工序计划](.agents/skills/kingdee-production/references/production/delete-sfc-plan.md)
-- [技能参考：客户解冻](.agents/skills/kingdee-sales-inventory/references/customers/customer-unfreeze-by-name.md)
+### 1. 核心规则与系统字典
+
+- [AGENTS.md](AGENTS.md)：Agent 和开发者必须遵守的安全、调查、写入和复核硬规则
+- [项目约定与优化决策](.agents/skills/kingdee-k3cloud/references/system/project-conventions.md)：公开/私有双层架构、目录、脚本晋升和既有兼容约定
+- [项目结构与命令地图](.agents/skills/kingdee-k3cloud/references/system/project-map.md)：仓库目录树、`package.json` 脚本与客户端接口速查
+- [常用表单 ID](.agents/skills/kingdee-k3cloud/references/system/k3cloud-form-ids.md)：K3 Cloud 业务对象 `FormId` 字典
+- [常用字段参考](.agents/skills/kingdee-k3cloud/references/system/k3cloud-fields-reference.md)：已验证字段、子实体键及应付单限制
+
+### 2. 八大领域技能入口（SKILL.md）
+
+- [共用查询与连接](.agents/skills/kingdee-k3cloud/SKILL.md)：连接验证、通用查单、表单字段与操作元数据发现
+- [物料与 BOM](.agents/skills/kingdee-materials-bom/SKILL.md)：建料、改料、晶圆蓝膜配对与 BOM 完整性核对
+- [生产与工序](.agents/skills/kingdee-production/SKILL.md)：生产订单、工序计划、工序汇报及转移全链路排查
+- [采购与委外](.agents/skills/kingdee-procurement/SKILL.md)：采购、委外、受托加工辨别及收退料处理
+- [销售、库存与客户](.agents/skills/kingdee-sales-inventory/SKILL.md)：销售链、锁库、库存维度、调拨、客户编码迁移与客户解冻
+- [财务、对账与成本](.agents/skills/kingdee-finance/SKILL.md)：应收应付、外发对账、跨月调价、核销与期间成本取数
+- [系统、权限与运维](.agents/skills/kingdee-system-admin/SKILL.md)：用户权限、数据范围、补丁升级、SQL 备份与二开接管
+- [技能维护与合规审计](.agents/skills/kingdee-skill-maintenance/SKILL.md)：技能职责整理、参考归属、跨技能引用与本地选路验证
+
+### 3. 高频操作 SOP 与人工执行单快捷入口
+
+- [通用查单](.agents/skills/kingdee-k3cloud/references/system/search-bill.md)
+- [删除工序计划](.agents/skills/kingdee-production/references/production/delete-sfc-plan.md)
+- [生产订单状态机与反审核](.agents/skills/kingdee-production/references/production/mo-status-machine-and-reverse-audit.md)
+- [工序超报控制规格](.agents/skills/kingdee-production/references/production/operation-report-over-rate-control.md)
+- [BOM 用量修改与批量更新](.agents/skills/kingdee-materials-bom/references/materials/bom-usage-and-batch-update.md)
+- [BOM 反审核与删除](.agents/skills/kingdee-materials-bom/references/materials/bom-unaudit-and-delete.md)
+- [客户解冻（按名称/编码）](.agents/skills/kingdee-sales-inventory/references/customers/customer-unfreeze-by-name.md)
+- [负库存处理 SOP](.agents/skills/kingdee-sales-inventory/references/inventory-sales/negative-stock-sop.md)
+- [预置基础资料1修改](.agents/skills/kingdee-system-admin/references/system/prebase-data-one-query-update.md)
 - [人工执行单：企业版 V9.0 补丁升级](.agents/skills/kingdee-system-admin/references/system/k3cloud-patch-v9-upgrade.md)　—— 2026-09-21 历史核查与现场清单；执行前刷新包、版本、备份及窗口
-- [技能参考：BOM 用量修改](.agents/skills/kingdee-materials-bom/references/materials/bom-usage-and-batch-update.md)
-- [技能参考：BOM 反审核与删除](.agents/skills/kingdee-materials-bom/references/materials/bom-unaudit-and-delete.md)
-- [技能参考：预置基础资料1修改](.agents/skills/kingdee-system-admin/references/system/prebase-data-one-query-update.md)
-- [技能参考：工序超报控制规格](.agents/skills/kingdee-production/references/production/operation-report-over-rate-control.md)
-- [负库存 SOP](.agents/skills/kingdee-sales-inventory/references/inventory-sales/negative-stock-sop.md)
-- [技能参考：生产订单状态机与反审核](.agents/skills/kingdee-production/references/production/mo-status-machine-and-reverse-audit.md)
-- [共用查询与连接](.agents/skills/kingdee-k3cloud/SKILL.md)：连接、通用查单、表单字段与元数据
-- [物料与 BOM](.agents/skills/kingdee-materials-bom/SKILL.md)
-- [生产与工序](.agents/skills/kingdee-production/SKILL.md)
-- [采购与委外](.agents/skills/kingdee-procurement/SKILL.md)
-- [销售、库存与客户](.agents/skills/kingdee-sales-inventory/SKILL.md)
-- [财务、对账与成本](.agents/skills/kingdee-finance/SKILL.md)
-- [系统、权限与运维](.agents/skills/kingdee-system-admin/SKILL.md)
-- [技能维护与合规审计](.agents/skills/kingdee-skill-maintenance/SKILL.md)：技能设计、整理、索引和本地验证
 
 金蝶字段、表单和操作语义以实际账套元数据及[官方 WebAPI 文档](https://openapi.open.kingdee.com/ApiDoc)为准；本仓库文档只记录已在项目中验证或明确约定的内容。
 

@@ -21,7 +21,7 @@ AP_PAYABLE 实时区分 FSETACCOUNTTYPE：2 暂估按明确授权处理；3 财�
 
 - `references/finance/reconciliation-xlsx-ap-query.md`
 - `references/finance/external-reconciliation-spreadsheets.md`
-- `references/system/cost-accounting-period-probe.md`
+- `references/finance/cost-accounting-period-probe.md`
 
 ## 相邻能力
 
@@ -45,8 +45,8 @@ AP_PAYABLE 实时区分 FSETACCOUNTTYPE：2 暂估按明确授权处理；3 财�
 - `references/finance/reconciliation-and-unfamiliar-forms.md` — 对账三量比对
 - `references/finance/reconciliation-xlsx-ap-query.md` — 对账工作簿与 AP 分录核对
 - `references/finance/subcontract-return-after-costclose.md` — 委外多发退料 — 关账后替代方案
-- `references/system/cost-accounting-period-probe.md` — cost-accounting-period-probe
+- `references/finance/cost-accounting-period-probe.md` — 成本核算期间锚定、关账状态与当期金额只读探针
 
 ## 本地私有档案（不纳入公开 Git）
 
-- `.agents/private/kingdee-finance/` — 公司经营画像、特定型号成本拆解、固晶 UPH 试点数据与历史入口摘录，仅供本地环境读取。
+- `.agents/private/kingdee-finance/INDEX.md` — 公司经营画像、特定型号成本拆解、固晶 UPH 试点数据与历史入口摘录索引，仅供本地环境读取。

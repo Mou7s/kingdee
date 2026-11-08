@@ -3,7 +3,7 @@
 //         --spec "300dpi 热转印标签打印机" --group 401 --unit Pcs [--erp 10] [--apply]
 // 默认 dry-run 只打印参数不写库；加 --apply 才真正执行。
 
-import { K3CloudWebAPI } from "../../k3cloud.js";
+import { K3CloudWebAPI } from "../../lib/k3/index.js";
 
 // ===== 参数解析 =====
 const args = process.argv.slice(2);

@@ -4,7 +4,7 @@
 //   ... --apply 真实写入
 // 默认 dry-run 只做预检与预览。写入流程：重码预检 -> Save(带批号规则/默认仓+仓位/领料仓+仓位/完工超短收率) -> Submit -> Audit -> 独立 View 回查。
 
-import { K3CloudWebAPI } from "../../k3cloud.js";
+import { K3CloudWebAPI } from "../../lib/k3/index.js";
 
 const args = process.argv.slice(2);
 const get = (flag, dflt) => {

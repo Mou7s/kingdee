@@ -18,11 +18,11 @@ bun run login  # 在仓库根目录执行
 
 ```js
 // 最小取数示例（在 kingdee 根目录 bun -e 或临时脚本）
-import { K3CloudWebAPI } from "./k3cloud.js";
+import { K3CloudWebAPI, FORMS } from "./lib/k3/index.js";
 const c = new K3CloudWebAPI();
 await c.login();
 const rows = await c.executeBillQuery(
-  "BD_MATERIAL",
+  FORMS.BD_MATERIAL,
   "FNumber,FName,FDocumentStatus",
   "FDocumentStatus = 'C'",
   5
@@ -36,8 +36,8 @@ console.log(rows);
 
 - **运行时**：Bun（`bun`），优先 JS/TS，尽量不用 Python
 - **WebAPI**：`K3CloudWebAPI` 内网/外网并行探测后 `AuthService.ValidateUser`
-- **凭据**：private 项目，写在 `k3cloud.js`（**不要**抽到 `.env`，也不要在聊天里主动复述密码）
-- **DB**：SQL Server 常量同文件导出（`K3_DB_*`）；正式单据禁止擅自 SQL 写（见下）。只读脚本连库用 `mssql.connect({ server: K3_DB_HOST, user: K3_DB_USER, password: K3_DB_PASS, database: K3_DB_NAME, options: { encrypt: false, trustServerCertificate: true }, requestTimeout: 60000 })`——**不要开 `encrypt: true`**：tls 要求 `options.serverName` 而不能是 IP，直接报 `Setting the TLS ServerName to an IP address is not permitted` 连不上（除非像 ctk-system 那样另传 `options.serverName`）。传参必须用 `new mssql.Request().input(...)`——`mssql.query(sql, [params])` 会报 `Must declare the scalar variable`；库内查到的 GUID/编码可直接内联拼接（值不来自用户输入）。
+- **凭据**：保存在本地未跟踪的 `k3cloud.local.json`（参考 `k3cloud.local.example.json`），由 `k3cloud.js` 加载；严禁将真实凭据硬编码进公开脚本或文档，也不要在聊天里复述密码
+- **DB**：SQL Server 常量由 `lib/k3/index.js`（底层 `k3cloud.js`）统一导出（`K3_DB_*`）；正式单据禁止擅自 SQL 写（见 `AGENTS.md`）。只读脚本连库用 `mssql.connect({ server: K3_DB_HOST, user: K3_DB_USER, password: K3_DB_PASS, database: K3_DB_NAME, options: { encrypt: false, trustServerCertificate: true }, requestTimeout: 60000 })`——**不要开 `encrypt: true`**：tls 要求 `options.serverName` 而不能是 IP，直接报 `Setting the TLS ServerName to an IP address is not permitted` 连不上（除非另传 `options.serverName`）。传参必须用 `new mssql.Request().input(...)`——`mssql.query(sql, [params])` 会报 `Must declare the scalar variable`；库内查到的 GUID/编码可直接内联拼接（值不来自用户输入）。
 
 ## 数据库连接失败与外网复测（2026-11-07）
 

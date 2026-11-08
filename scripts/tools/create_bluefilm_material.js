@@ -15,7 +15,7 @@
  *     --spec "0.33*0.33(JWC033110NXC-B)" [--number N101021029] [--group 10102] [--apply]
  */
 
-import { K3CloudWebAPI } from "../../k3cloud.js";
+import { K3CloudWebAPI } from "../../lib/k3/index.js";
 
 const args = process.argv.slice(2);
 const get = (flag, dflt) => {

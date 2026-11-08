@@ -48,9 +48,9 @@ description: >-
 - `references/system/project-conventions.md` — 开发及运维前按需读取
 - `references/system/project-map.md` — 目录、命令、与仓库文件对照
 - `references/system/runtime-and-connectivity.md` — 验证连接或编写脚本时读取
-- `references/system/search-bill.md` — search-bill
-- `references/system/task-workflows.md` — 对账、建料、成本、诊断、SOP 等任务的条件判断与后续入口
+- `references/system/search-bill.md` — 跨采购/应付/生产/工序/销售/库存表单按单号模糊检索
+- `references/system/task-workflows.md` — 2026-11-01 拆分前的历史跨领域入口摘录与现行流程指向
 
 ## 本地私有档案（不纳入公开 Git）
 
-- `.agents/private/kingdee-k3cloud/` — 历史入口摘录（`bill-operations.md`、`common-ops.md`、`pitfalls.md`、`webapi-query-pitfalls.md`），仅供本地环境追溯。
+- `.agents/private/kingdee-k3cloud/INDEX.md` — 本地历史入口摘录索引（`bill-operations.md`、`common-ops.md`、`pitfalls.md`、`webapi-query-pitfalls.md`），仅供本地环境追溯。

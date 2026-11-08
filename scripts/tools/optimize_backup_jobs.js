@@ -11,7 +11,7 @@
  * 不改动现存的 KD-MAIN 维护计划本身，只改它的清理调度与服务器级配置。
  */
 import sql from "mssql";
-import { K3_DB_HOST, K3_DB_USER, K3_DB_PASS, K3_DB_NAME } from "../../k3cloud.js";
+import { K3_DB_HOST, K3_DB_USER, K3_DB_PASS, K3_DB_NAME, K3_FS_DB } from "../../lib/k3/index.js";
 
 const APPLY = process.argv.includes("--apply");
 const SYS_JOB = "管理中心库与系统库-每日完整备份";
@@ -22,7 +22,7 @@ const CHK_SCHED = "备份体检-每日0400";
 const FS_JOB = process.env.K3_SUB_BACKUP_JOB || "分厂账套-每日完整备份";
 const FS_SCHED = process.env.K3_SUB_BACKUP_SCHED || "分厂账套-每日0000";
 const MAIN_DB = K3_DB_NAME || process.env.K3_MAIN_DB;
-const FS_DB = process.env.K3_SUB_DB || "";
+const FS_DB = process.env.K3_SUB_DB || K3_FS_DB || "";
 const MC_DB = process.env.K3_MC_DB || "";
 const KEEP_DAYS = 15;
 const SYS_DBS = [...(MC_DB ? [MC_DB] : []), "master", "model", "msdb", "ReportServer", "ReportServerTempDB"];

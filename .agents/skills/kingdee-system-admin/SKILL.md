@@ -38,17 +38,17 @@ description: >-
 
 - `references/system/bos-extension-field-guidance.md` — BOS 标准单据字段配置
 - `references/system/business-monitor-readonly-audit.md` — 业务监控消息超量
-- `references/system/employee-master-query.md` — 员工主数据
+- `references/system/employee-master-query.md` — 员工主数据查询、新增与关联核对
 - `references/system/k3cloud-customization-takeover.md` — 二开接管时读取
-- `references/system/k3cloud-patch-v9-upgrade.md` — k3cloud-patch-v9-upgrade
+- `references/system/k3cloud-patch-v9-upgrade.md` — 企业版 V9.0 补丁升级现场核查与人工执行单（2026-09-21 基线，执行前刷新）
 - `references/system/permission-data-scope-inheritance.md` — K3 数据权限的基础资料联动边界
 - `references/system/permission-data-scope-investigation.md` — K3 Cloud 用户权限与数据范围排查
 - `references/system/permission-data-scope-supervisor-rule.md` — 主管角色与客户数据范围排查
-- `references/system/prebase-data-one-query-update.md` — prebase-data-one-query-update
-- `references/system/recover-deleted-bills.md` — 误删生产订单等
+- `references/system/prebase-data-one-query-update.md` — 预置基础资料1（`BAS_PreBaseDataOne`）FormId 定位与批量修改流程
+- `references/system/recover-deleted-bills.md` — 误删生产订单等单据恢复排查
 - `references/system/sqlserver-backup-and-agent-ops.md` — 星空的备份体系核查与 SQL Agent 作业维护
 - `references/system/version-and-patch-inventory.md` — 版本补丁调查或交付执行单时读取
 
 ## 本地私有档案（不纳入公开 Git）
 
-- `.agents/private/kingdee-system-admin/` — 环境历史快照、工厂机台解锁包逆向与历史入口摘录，仅供本地环境读取。
+- `.agents/private/kingdee-system-admin/INDEX.md` — 环境历史快照、工厂机台解锁包逆向与历史入口摘录索引，仅供本地环境读取。

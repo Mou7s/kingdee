@@ -11,7 +11,7 @@
  * - 差异备份以每天 00:00 的完整备份为基线；全备失败时差异仍以更早的全备为基线。
  */
 import sql from "mssql";
-import { K3_DB_HOST, K3_DB_USER, K3_DB_PASS, K3_DB_NAME } from "../../k3cloud.js";
+import { K3_DB_HOST, K3_DB_USER, K3_DB_PASS, K3_DB_NAME } from "../../lib/k3/index.js";
 
 const APPLY = process.argv.includes("--apply");
 const JOB = "主账套-每日差异备份";

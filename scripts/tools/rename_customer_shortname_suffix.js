@@ -21,8 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 import mssql from "mssql";
 import * as XLSX from "xlsx";
-import { K3CloudWebAPI } from "../../lib/k3/index.js";
-import { K3_DB_HOST, K3_DB_USER, K3_DB_PASS, K3_DB_NAME } from "../../k3cloud.js";
+import { K3CloudWebAPI, K3_DB_HOST, K3_DB_USER, K3_DB_PASS, K3_DB_NAME } from "../../lib/k3/index.js";
 
 const FORM_ID = "BD_CUSTOMER";
 const ARGS = process.argv.slice(2);
@@ -37,7 +36,7 @@ const APPLY = ARGS.includes("--apply");
 const ONE = argValue("--one");
 const SUFFIX = argValue("--suffix", "-W");
 const SCOPE = argValue("--scope", "dept");
-const EXPORT_DEPT_NUMBER = "BM000016"; // 外贸部
+const EXPORT_DEPT_NUMBER = argValue("--dept", "BM000016"); // 外贸部默认编码，可通过 --dept 覆盖
 const PREVIEW_PATH = path.resolve("output/customer_shortname_suffix_preview.json");
 const XLSX_PATH = path.resolve("output/customer_shortname_suffix_preview.xlsx");
 const LOG_PATH = path.resolve("output/customer_shortname_suffix_log.json");

@@ -30,7 +30,12 @@ for (let index = 0; index < ARGS.length; index += 1) {
 }
 const OUTPUT = path.resolve("output/customer_code_renumber_preview.json");
 const FORM_ID = "BD_CUSTOMER";
-const PREFIX = "CTK";
+let PREFIX = "CTK";
+for (let index = 0; index < ARGS.length; index += 1) {
+  if (ARGS[index] === "--prefix" && ARGS[index + 1]) PREFIX = String(ARGS[index + 1]);
+  if (ARGS[index].startsWith("--prefix=")) PREFIX = ARGS[index].slice("--prefix=".length);
+}
+const RULE_LABEL = `${PREFIX} + 6位流水号`;
 const TARGET_STATUS = { documentStatus: "C", forbidStatus: "A" };
 
 function toCustomer(row) {
@@ -107,7 +112,7 @@ function buildMapping(customers) {
     candidate += 1;
   }
   if (temporaryNumbers.length !== active.length) {
-    throw new Error("无法为两阶段改码找到足够的临时 CTK 编码");
+    throw new Error(`无法为两阶段改码找到足够的临时 ${PREFIX} 编码`);
   }
 
   const mapping = active.map((customer, index) => ({
@@ -125,7 +130,7 @@ function buildMapping(customers) {
   return {
     generatedAt: new Date().toISOString(),
     formId: FORM_ID,
-    rule: "CTK + 6位流水号",
+    rule: RULE_LABEL,
     ordering: "按客户内码升序",
     includedStatus: TARGET_STATUS,
     totalCustomers: customers.length,
@@ -167,8 +172,8 @@ async function loadOrCreatePreview(api) {
       throw new Error(`找不到预览文件: ${OUTPUT}，请先运行不带 --apply 的命令`);
     }
     const preview = JSON.parse(fs.readFileSync(OUTPUT, "utf8"));
-    if (preview.rule !== "CTK + 6位流水号") {
-      throw new Error("预览文件不是当前的 CTK + 6位流水号规则，请先重新生成预览");
+    if (preview.rule !== RULE_LABEL) {
+      throw new Error(`预览文件不是当前的 ${RULE_LABEL} 规则，请先重新生成预览`);
     }
     return preview;
   }

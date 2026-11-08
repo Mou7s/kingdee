@@ -60,7 +60,7 @@ FROM T_META_OBJECTTYPE WHERE FID='<FormId>';
 
 所以不要凭中文名直译字段键。要一份准确键名：先 `executeBillQuery` 取 `FID,FBillNo`，再 `viewBill` 打印 `Object.keys()`（表头、第一条分录各一次），确认后再写正式查询。
 
-分录尤其不能照搬：`viewBill` 的分录属性名（如 `ProductEntity` / `STK_ASSEMBLYSUBITEM`）**不等于** `executeBillQuery` 的分录字段键——加不加 `F` 前缀都不是万能解，有的表单分录字段根本没有实体前缀，是平铺的（`FQty`、`FMaterialIDSETY`）。拿到 viewBill 的 keys 后仍要**逐个候选键单独跑一次** `executeBillQuery`：一个错键就中断整条查询，串在一起试会分不清是谁报的错。已实测走平铺键的表单见 `../kingdee-sales-inventory/references/system/assembly-bill-audit.md`。
+分录尤其不能照搬：`viewBill` 的分录属性名（如 `ProductEntity` / `STK_ASSEMBLYSUBITEM`）**不等于** `executeBillQuery` 的分录字段键——加不加 `F` 前缀都不是万能解，有的表单分录字段根本没有实体前缀，是平铺的（`FQty`、`FMaterialIDSETY`）。拿到 viewBill 的 keys 后仍要**逐个候选键单独跑一次** `executeBillQuery`：一个错键就中断整条查询，串在一起试会分不清是谁报的错。已实测走平铺键的表单见 `../kingdee-sales-inventory/references/inventory-sales/assembly-bill-audit.md`。
 
 另外 `FMaterialID` / `FMaterialIDSETY` 这类外键列返回**内部 ID** 而不是编码，要按批 `FMaterialID in (...)` join `BD_MATERIAL` 解码（每批 ≤400 个 ID，编码/名称/分组一起取）。
 

@@ -20,7 +20,7 @@
  */
 
 import mssql from "mssql";
-import { K3_DB_HOST, K3_DB_USER, K3_DB_PASS, K3_DB_NAME } from "../../k3cloud.js";
+import { K3_DB_HOST, K3_DB_USER, K3_DB_PASS, K3_DB_NAME } from "../../lib/k3/index.js";
 import { writeFileSync, mkdirSync } from "fs";
 import { dirname } from "path";
 

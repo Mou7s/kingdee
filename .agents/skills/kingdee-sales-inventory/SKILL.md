@@ -64,12 +64,12 @@ description: >-
 - `references/inventory-sales/sales-order-status-investigation.md` — 销售订单状况排查
 - `references/inventory-sales/sales-outstock-ar-link.md` — 销售出库 SAL_OUTSTOCK 下游应收 AR_Receivable 关联排查
 - `references/inventory-sales/sales-outstock-view.md` — 销售出库单 SAL_OUTSTOCK 明细查看与状态追溯
-- `references/inventory-sales/stockplace-id-resolution.md` — 仓位
+- `references/inventory-sales/stockplace-id-resolution.md` — 仓库仓位值集与内码（`FStockPlaceId`）解析
 - `references/inventory-sales/warehouse-transfer.md` — 仓库取消与调拨
-- `references/system/assembly-app-save-structure.md` — 组装拆卸单 STK_AssembledApp 写读两侧
-- `references/system/assembly-bill-audit.md` — 组装拆卸单滥用诊断时读取
-- `references/system/k3-write-timeout-orphan-cleanup.md` — K3 写超时孤儿单清理
+- `references/inventory-sales/assembly-app-save-structure.md` — 组装拆卸单 `STK_AssembledApp` 写读两侧报文结构
+- `references/inventory-sales/assembly-bill-audit.md` — 组装拆卸单滥用诊断与平铺分录字段查询
+- `references/inventory-sales/k3-write-timeout-orphan-cleanup.md` — K3 写超时孤儿单清理
 
 ## 本地私有档案（不纳入公开 Git）
 
-- `.agents/private/kingdee-sales-inventory/` — CTK 侧载部署配置与历史入口摘录，仅供本地环境读取。
+- `.agents/private/kingdee-sales-inventory/INDEX.md` — CTK 侧载部署配置与历史入口摘录索引，仅供本地环境读取。

@@ -57,8 +57,8 @@
 - WebAPI 操作优先使用 Bun + JavaScript/TypeScript；新脚本优先从 `lib/k3/index.js` 导入 `K3CloudWebAPI`、`FORMS`、状态常量和工具函数。
 - 稳定或重复使用的逻辑放在 `scripts/tools/`；一次性探测放在 `scripts/scratch/YYYY-MM/`；固定对象、固定期间和历史修复脚本放在 `scripts/cases/`，本地测试放在 `scripts/tests/`；旧环境历史脚本可保留在 `scripts/bun_test/`，不要把临时代码放在根目录。
 - 新增表单或字段时，同步更新 `.agents/skills/kingdee-k3cloud/references/system/k3cloud-form-ids.md` 或 `.agents/skills/kingdee-k3cloud/references/system/k3cloud-fields-reference.md`，并注明来源或验证范围。
-- 不在文档、示例、日志和导出文件中复制凭据。私有项目的既有连接配置沿用 [.agents/skills/kingdee-k3cloud/references/system/project-conventions.md](.agents/skills/kingdee-k3cloud/references/system/project-conventions.md)；不要在本次任务中擅自扩大凭据管理范围。
-- 代码和文档完成后，至少运行 `bun run test:safety`、`git diff --check`；实时数据任务还要完成执行后复查。
+- 不在文档、示例、日志和导出文件中复制凭据。连接凭据统一保存在本地未跟踪的 `k3cloud.local.json`（约定见 [.agents/skills/kingdee-k3cloud/references/system/project-conventions.md](.agents/skills/kingdee-k3cloud/references/system/project-conventions.md)）；不要在本次任务中擅自扩大凭据管理范围。
+- 代码和文档完成后，至少运行 `bun run test:safety`、`git diff --check`；改动技能或参考文档时一并运行 `bun scripts/tools/audit_skill_routes.js` 与 `bun test ./scripts/tests/audit_skills.test.js`；实时数据任务还要完成执行后复查。
 
 ## 四、参考定位
 
