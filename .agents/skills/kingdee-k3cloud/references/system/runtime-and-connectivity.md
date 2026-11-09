@@ -22,7 +22,7 @@ import { K3CloudWebAPI, FORMS } from "./lib/k3/index.js";
 const c = new K3CloudWebAPI();
 await c.login();
 const rows = await c.executeBillQuery(
-  FORMS.BD_MATERIAL,
+  FORMS.MATERIAL,
   "FNumber,FName,FDocumentStatus",
   "FDocumentStatus = 'C'",
   5
