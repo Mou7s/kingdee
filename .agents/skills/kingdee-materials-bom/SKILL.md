@@ -15,7 +15,7 @@ description: >-
 
 ## 本领域关键判断
 
-先读 material-scope-invariants.md。黑胶名称须带已确认封装，缺少封装不得建料；NB 新成品须确认单芯或双芯。配对建料核对蓝膜 BOM；成品 BOM 仅在用户明确要求时处理，按模板完整性门槛逐字段核对。
+先读 material-scope-invariants.md。新建物料须同时核对物料属性（`FErpClsID`：外购/自制/委外 vs 费用 vs 资产）与存货类别（`FCategoryID`），以确保匹配下游标准/费用/资产采购订单链路（详见 `material-classification.md`）。黑胶名称须带已确认封装，缺少封装不得建料；NB 新成品须确认单芯或双芯。配对建料核对蓝膜 BOM；成品 BOM 仅在用户明确要求时处理，按模板完整性门槛逐字段核对。
 
 ## 优先阅读
 
@@ -54,7 +54,7 @@ description: >-
 - `references/materials/lm-bom-parent-requirements.md` — 蓝膜 BOM 父项主产品与属性要求
 - `references/materials/material-aux-property.md` — 物料辅助属性
 - `references/materials/material-batch-fix-external.md` — 外购 N 料批号补齐
-- `references/materials/material-classification.md` — 物料分类核对参考
+- `references/materials/material-classification.md` — 物料分类核对参考（含物料属性、存货类别与三类采购订单对应规范）
 - `references/materials/material-create.md` — 通用与分品类建料流程及重码预检
 - `references/materials/material-group-selection.md` — 物料分组选择
 - `references/materials/material-master-data-edits.md` — 修改规格时读取

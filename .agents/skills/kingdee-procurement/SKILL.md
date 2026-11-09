@@ -15,11 +15,12 @@ description: >-
 
 ## 本领域关键判断
 
-先区分采购、委外和受托加工；退料前核对已下推数量、现存量及实际物料方向。涉及应付与对账时同时读取财务技能。
+先区分采购、委外和受托加工；采购订单须按物料属性（外购/自制/委外 vs 费用 vs 资产）与存货类别对应选择标准采购订单（经收料→验收入库→暂估应付→财务应付）或费用/资产采购订单（收料直接下推财务应付）；退料前核对已下推数量、现存量及实际物料方向。涉及应付与对账时同时读取财务技能。
 
 ## 优先阅读
 
 - `references/procurement/entrusted-vs-subcontract.md`
+- `references/procurement/purchase-vs-subcontract-diagnosis.md`
 - `references/procurement/oem-receive-instock-return.md`
 - `references/procurement/subcontract-order-to-pick-push-conditions.md`
 
@@ -41,7 +42,7 @@ description: >-
 - `references/procurement/oem-receive-instock-return.md` — 受托加工材料 收料/入库/退料
 - `references/procurement/purchase-order-delete-change-lock.md` — 采购订单删除链与变更锁死
 - `references/procurement/purchase-prepay-push.md` — 采购订单下推付款申请预付失败排查
-- `references/procurement/purchase-vs-subcontract-diagnosis.md` — 采购vs委外诊断
+- `references/procurement/purchase-vs-subcontract-diagnosis.md` — 采购vs委外诊断，以及标准/费用/资产采购订单链路与物料属性及存货类别对应规范
 - `references/procurement/subcontract-order-delete-chain.md` — 委外订单全链路逆向删除与死锁解除
 - `references/procurement/subcontract-order-to-pick-push-conditions.md` — 委外订单下推委外领料单「不符合下推条件」的字段级排查
 - `references/procurement/subcontract-picking-negative-stock.md` — 委外领料客供仓负库存
