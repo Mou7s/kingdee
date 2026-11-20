@@ -39,6 +39,7 @@ description: >-
 - `references/system/bos-extension-field-guidance.md` — BOS 标准单据字段配置
 - `references/system/business-monitor-readonly-audit.md` — 业务监控消息超量
 - `references/system/employee-master-query.md` — 员工主数据查询、新增与关联核对
+- `references/system/eqm-boside-handoff.md` — 设备运维管理（`TK_EQM`）BOSIDE 搭建、发布与权限验收交接执行单（2026-11-20 基线）
 - `references/system/k3cloud-customization-takeover.md` — 二开接管时读取
 - `references/system/k3cloud-patch-v9-upgrade.md` — 企业版 V9.0 补丁升级现场核查与人工执行单（2026-09-21 基线，执行前刷新）
 - `references/system/permission-data-scope-inheritance.md` — K3 数据权限的基础资料联动边界
