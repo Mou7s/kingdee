@@ -113,6 +113,15 @@ Nitro 路由中的 `getAuthSession` + `hasPermission` 只证明“谁能调用�
 
 部分基础资料的子页签按钮及主档分组查看/维护绑定在同一业务对象的独立权限项上，仅勾选 `BOS_VIEW` / `BOS_NEW` / `BOS_MODIFY` 并不会自动放行。例如 `BD_Supplier`（供应商）的「联系人」页签新增/修改/删除/禁用/反禁用受 `BD_New_Contact`、`BD_Modify_Contact`、`BD_Delete_Contact`、`SCM_ForbidContact`、`SCM_UnForbidContact` 控制，表头必填项「供应商分组」的选择受 `BOS_GROUP_VIEW`（查看分组）及 `BOS_GROUP_ADD/MODIFY/DELETE` 独立控制（详见 `../../kingdee-procurement/references/procurement/supplier-reconnaissance.md` 第 10 节）。核查对象权限时须拉取该对象在 `T_SEC_FUNCPERMISSIONENTRY` 中的全部权限项，不可只过滤常规单据级 `BOS_*` 编码。
 
+### 7. 工序委外集中收发依赖工序计划查看与工序转移单权限链（2026-11-20）
+
+仅授予 `SFC_OperOutGroupSend`（工序委外集中发出）与 `SFC_OperOutGroupReceive`（工序委外集中接收）并不能跑通「新增选单 → 提交生成 → 审核 → 反审核/结算」全流程，实测操作日志证实存在四层关联校验：
+
+1. **新增选单列表**：集中发出界面「选取委外工序」会查询 `SFC_OperationPlanning`（工序计划选单列表），至少须具备 `SFC_OperationPlanning` 的 `BOS_VIEW`（查看）权限；若同时需操作集中接收选单，需具备 `SFC_OperOutGroupSend` 的查看权限。
+2. **「提交生成」与后台联动保存**：集中发出/集中接收单在保存、提交、审核后，后台会即时联动 `SFC_OperationPlanning` 自动生成并保存、提交、审核 **`SFC_OperationTransfer`（工序转移单）**，且在保存校验阶段强检查 `SFC_OperationTransfer` 的 **`MFG_OUTSRCSEND`（工序委外发出）** 与 **`MFG_OUTSRCRECEIVE`（工序委外接收）**（非通用 `BOS_NEW`/`BOS_MODIFY`）。若缺少上述转移单权限，系统会报错 `您没有“工序转移单”的“工序委外发出”权限，不能保存数据！` 并自动触发集中发出单的反审核，使单据状态回退至重新审核（`D`）。
+3. **配套流转与反操作**：完整操作集中收发及后续打印、回冲、撤销或反审核时，除保存/提交/审核外，`SFC_OperationTransfer` 还需配置查看（`BOS_VIEW`）、新增（`BOS_NEW`）、修改（`BOS_MODIFY`）、反审核（`BOS_UNAUDIT`）、删除（`BOS_DELETE`）、撤销（`BOS_CANCELASSIGN`）、回冲（`MFG_BACKWASH`）、打印（`BOS_PRINT`）、引出（`BOS_EXPORT`）及业务流程查询（`BOS_TRACK`）等核心操作权限。
+4. **自动下推结算**：集中接收产生的工序转移单审核后，系统会由「自动下推服务」继续生成 **`SFC_OperProcBalance`（工序加工结算单）**，排查收发受阻时应同步核查目标角色对该结算单的权限。
+
 ## 输出格式建议
 
 最终结论分开写：
