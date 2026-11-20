@@ -72,3 +72,8 @@ GROUP BY r.FBILLNO, r.FCLOSESTATUS, r.FDOCUMENTSTATUS;
 3. 原因：入满 → 下游入库单在什么时间被谁审核 → 关闭时间与之一致；引官方手册原句。
 4. 能不能反关闭：给系统拒绝的**原文**（日志里就有），不要只说「不能」。
 5. 真要做怎么走 + 现状约束（料已消耗多少），并问清用户目的再动手。
+
+
+## 六、采购订单整单关闭 vs 单行关闭（业务终止 / 业务冻结）
+
+采购订单（`PUR_PurchaseOrder`）表头 `FCloseStatus`（手工标志为 `FManualClose`）控制整单关闭；若订单中部分行已入库自动行业务关闭（`FMRPCloseStatus='B'`）、部分行仍需继续收货、仅个别行需要取消或不再收货，**不要点「整单关闭」**，而应使用分录级**「行操作 → 终止」**（单据详情明细工具栏）或列表级**「业务操作 → 业务终止」**（`Terminate` → `FMRPTerminateStatus='B'`，不改变表头 `FCloseStatus`）。详见 `../../kingdee-procurement/references/procurement/purchase-order-delete-change-lock.md` 中「退场：整单关闭 vs 单行关闭（业务终止 / 业务冻结）」章节。

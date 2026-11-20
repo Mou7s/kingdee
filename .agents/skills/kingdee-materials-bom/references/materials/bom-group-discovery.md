@@ -34,3 +34,23 @@
 ## 重要教训
 
 仅使用 `FMaterialId.FSpecification like '%PDFN5%'` 或 `%PDFN3%` 可能遗漏界面 BOM 分组下的同规格 BOM。发现用户截图中有 IDM/OEM 等分组时，必须补做 `FGROUP.FName` 分组查询，并将分组加入导出修改记录。
+
+## 查询完整分组树与新建 BOM 分组（2026-11-10 实测）
+
+1. **查询完整 BOM 分组树**：
+   调用 `DynamicFormService.QueryGroupInfo`，传入 `{ data: { FormId: "ENG_BOM", GroupFieldKey: "FGROUP" } }`，返回数组位于 `Result.NeedReturnData`（含 `FID`、`FNUMBER`、`FNAME`、`FPARENTID`、`FFULLPARENTID`）。例如塑封组 `0-SF`（`FID=274204`）下有 `OEM`（`FID=117750`）与 `IDM`（`FID=240728`），`IDM` 下各封装子组命名规则为 `FNUMBER: a-<封装小写>`、`FNAME: IDM-<封装大写>`（如 `a-toll` / `IDM-TOLL`，`FID=947497`），`OEM` 下为 `b-<封装小写>` / `OEM-<封装大写>`。
+2. **新建与删除 BOM 分组**：
+   先通过 `QueryGroupInfo` 校验父分组 `FID` 及目标编码/名称未占用，默认 dry-run，获批后调用 `DynamicFormService.GroupSave`：
+   ```js
+   await api.post("DynamicFormService.GroupSave", {
+     formid: "ENG_BOM",
+     data: {
+       GroupFieldKey: "FGROUP",
+       FParentId: 240728, // IDM (OEM 为 117750)
+       FNumber: "a-toll",
+       FName: "IDM-TOLL",
+       FDescription: " ",
+     },
+   });
+   ```
+   若需删除无下游引用的空分组，可调用 `DynamicFormService.GroupDelete`（传入 `{ formid: "ENG_BOM", data: { FormId: "ENG_BOM", GroupFieldKey: "FGROUP", GroupPkIds: "<FID>", Ids: "<FID>" } }`）。操作后再次调用 `QueryGroupInfo` 独立回查。

@@ -13,6 +13,7 @@ const get = (flag, dflt) => {
 };
 const apply = args.includes("--apply");
 const allowSameName = args.includes("--allow-same-name"); // 同型号不同印字时名称必然重复，显式放行
+const noBatchAffectCost = args.includes("--no-batch-affect-cost"); // 默认批号库存属性 04 勾选影响出库成本（与自制/代工成品样板一致）
 
 const number = get("--number");
 const name = get("--name");
@@ -22,11 +23,12 @@ const unit = get("--unit", "K");
 const category = get("--category", "CHLB05_SYS"); // 存货类别：产成品
 const erp = get("--erp", "2"); // ERP 分类：2=自制
 const stock = get("--stock", "CTK10");
-const place = Number(get("--place", "100034")); // 默认仓位/领料仓位数值 ID
+const place = Number(get("--place", "100034")); // 默认仓位/领料仓位数值 ID（传 0 表示无仓位）
 const batchRule = get("--batch-rule", "PHBM004");
 const over = Number(get("--over", "500"));
 const short = Number(get("--short", "5"));
 const taxRate = get("--tax", "SL02_SYS");
+const workshop = get("--workshop", spec.includes("LL-") ? "BM000015" : "BM000005");
 
 if (!number || !name) {
   console.error("缺少必填参数: --number <编码> --name <名称>");
@@ -38,8 +40,8 @@ console.log(`编码: ${number}`);
 console.log(`名称: ${name}`);
 console.log(`规格: ${spec}`);
 console.log(`分组: ${group}  单位: ${unit}  存货类别: ${category}  ERP: ${erp}`);
-console.log(`默认仓: ${stock} / 仓位 ${place}  领料仓: ${stock} / 仓位 ${place}`);
-console.log(`批号管理: 是  批号规则: ${batchRule}  完工超收/短收: ${over}/${short}`);
+console.log(`默认仓: ${stock} / 仓位 ${place}  领料仓: ${stock} / 仓位 ${place}  生产车间: ${workshop} (${workshop === "BM000015" ? "玻封部" : "塑封部"})`);
+console.log(`批号管理: 是  批号规则: ${batchRule}  批号影响成本: ${!noBatchAffectCost}  完工超收/短收: ${over}/${short}`);
 console.log(`购/存/销/产: 否/是/是/是   税率: ${taxRate}`);
 console.log(apply ? "模式: APPLY（真实写入）" : "模式: DRY-RUN（仅预览，加 --apply 执行）");
 
@@ -110,7 +112,7 @@ const model = {
     FIsBatchManage: true,
     FBatchRuleID: { FNumber: batchRule },
     FStockId: { FNumber: stock },
-    FStockPlaceId: place,
+    ...(place > 0 ? { FStockPlaceId: place } : {}),
     FUnitConvertDir: "1",
     FIsLockStock: true,
     FCountCycle: "1",
@@ -143,10 +145,11 @@ const model = {
     FWriteOffQty: 1,
   },
   SubHeadEntity5: {
+    FWorkShopId: { FNumber: workshop },
     FBOMUnitId: { FNumber: unit },
     FProduceUnitId: { FNumber: unit },
     FPickStockId: { FNumber: stock },
-    FPickBinId: place,
+    ...(place > 0 ? { FPickBinId: place } : {}),
     FIssueType: "3",
     FMinIssueQty: 1,
     FMinIssueUnitId: { FNumber: unit },
@@ -154,7 +157,15 @@ const model = {
     FBackFlushType: "1",
     FFinishReceiptOverRate: over,
     FFinishReceiptShortRate: short,
+    FIsMainPrd: true,
   },
+  FEntityInvPty: [
+    { FInvPtyId: { FNumber: "01" }, FIsEnable: true, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "02" }, FIsEnable: place > 0, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "03" }, FIsEnable: false, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "04" }, FIsEnable: true, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: !noBatchAffectCost },
+    { FInvPtyId: { FNumber: "06" }, FIsEnable: false, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+  ],
 };
 
 console.log("\n正在保存...");
@@ -192,8 +203,9 @@ console.log(`编码/名称/规格: ${d?.Number} | ${d?.Name?.find((x) => x.Key =
 console.log(`状态: ${d?.DocumentStatus}  禁用: ${d?.ForbidStatus}  分组: ${d?.MaterialGroup?.Number}`);
 console.log(`存货类别: ${mb.CategoryID}  ERP: ${mb.ErpClsID}  基本单位: ${mb.BaseUnitId}  税率: ${mb.TaxRateId}`);
 console.log(`购/存/销/产/资产: ${mb.IsPurchase}/${mb.IsInventory}/${mb.IsSale}/${mb.IsProduce}/${mb.IsAsset}`);
-console.log(`批号管理: ${ms.IsBatchManage}  批号规则: ${ms.BatchRuleID}  默认仓: ${ms.StockId}  默认仓位: ${ms.StockPlaceId_Id}`);
-console.log(`领料仓: ${mp.PickStockId}  领料仓位: ${mp.PickBinId_Id}  完工超收/短收: ${mp.FinishReceiptOverRate}/${mp.FinishReceiptShortRate}`);
+const lotPty = d?.MaterialInvPty?.find((x) => x.InvPtyId?.Number === "04");
+console.log(`批号管理: ${ms.IsBatchManage}  批号规则: ${ms.BatchRuleID?.Number}  批号影响成本: ${lotPty?.IsAffectCost}  默认仓: ${ms.StockId?.Number}  默认仓位: ${ms.StockPlaceId_Id}`);
+console.log(`生产车间: ${mp.WorkShopId?.Number} (${mp.WorkShopId?.Name?.find?.((x) => x.Key === 2052)?.Value ?? ""})  领料仓: ${mp.PickStockId}  领料仓位: ${mp.PickBinId_Id}  完工超收/短收: ${mp.FinishReceiptOverRate}/${mp.FinishReceiptShortRate}`);
 console.log(`BOM单位: ${mp.BOMUnitId}  生产单位: ${mp.ProduceUnitId}  计划策略: ${d?.MaterialPlan?.[0]?.PlanningStrategy}`);
 
 const q = await api.post("DynamicFormService.ExecuteBillQuery", {

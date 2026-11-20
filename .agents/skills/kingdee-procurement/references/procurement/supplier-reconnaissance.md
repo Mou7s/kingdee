@@ -55,6 +55,7 @@
 - 脚本形态：默认 dry-run 打印前值与计划，`--apply` 才调用 `auditBill`；对象、方向、数量以用户明确范围为准。
 - 第二例（2026-10-16 GYS040002 供应商K，FID 933855，主账套组织）：列表查询 `FSupplierId,FNumber,FName,FDocumentStatus,FForbidStatus,FAuditDate,FAuditorID.FName` 实测可用；dry-run 守卫（唯一命中、`B/A`、审核日期与审核人均为 null）通过后 `--apply`，Audit 回执 `IsSuccess=true` 且 `SuccessEntitys[0].Id=933855`；审后列表 `C`、`FAuditDate=2026-10-16T16:19:31.27`、审核人 运维员A，View `DocumentStatus=C`。一次性脚本 `scripts/scratch/2026-10/audit_supplier_gys040002.js`，对象已写死，不能直接套用到其他供应商。
 - 审核前未覆盖的非阻断信息：该档案 `SupplierLocation` 与银行账户行均为空（界面截图同样为空），审核不要求补齐；是否补录由业务决定。
+- **审核中（`B`）供应商的撤销与删除（2026-11-13 实测）**：`BOS_BaseDataModel` 的 `Delete` 仅允许 `FDocumentStatus` 为 `Z`/`A`/`D` 且未被业务单据/物料默认供应商等引用的记录。对 `B`（审核中）的未用供应商，须先核查采购/委外/收退料/入库/应付/付款/价目表/货源清单/物料默认供应商等引用均为 0 并留存 `viewBill` 备份，再执行 `executeOperation("BD_Supplier", "CancelAssign", { Ids: "<FID>" })` 撤销为 `D`，随后调用 `deleteBill("BD_Supplier", ["<FID>"])` 删除，最后通过 WebAPI 与 SQL 双通道复查归零；注意关联的公共联系人（`T_BD_COMMONCONTACT`）不会随供应商删除自动清除。
 
 ## 8. executeBillQuery 字段键坑（易与 View 键混淆）
 
@@ -71,3 +72,20 @@
   - WebAPI 实体键：`FBaseInfo`（View 映射为 `SupplierBase`）。在 `DynamicFormService.Save` 时，**`FBaseInfo` 必须作为单对象传入**（如 `FBaseInfo: { FEntryId: entryId, FSupplyClassify: 'ZH' }`），不能传数组；且 `NeedUpDateFields` 传空数组 `[]`。
   - 标准变更闭环：反审核 `unAuditBill` (`C → D`) → 保存修改 `Save` → 提交 `submitBill` → 审核 `auditBill` (`D → C`)。
   - 标准工具：`scripts/tools/update_supplier_supply_classify.js`（支持 `--number`, `--classify`, `--expect`, 默认 dry-run，`--apply` 生效）。
+
+## 10. 供应商建档配套独立权限项：「联系人」与「供应商分组」（2026-11-11 ~ 2026-11-12 实证）
+
+- **易漏现象**：为角色开通 `BD_Supplier` 的 `BOS_NEW`（新增）、`BOS_MODIFY`（修改）、`BOS_SUBMIT`（提交）后，采购员虽可打开「供应商 - 新增」，但仍会遇到两类独立权限阻塞：
+  1. 在「联系人」页签点击「新增」等按钮无权限；
+  2. 表头必填项 `FGroup`（「供应商分组」，`MustInput=1`，引用 `BOS_FORMGROUP` / `t_BD_SupplierGroup`）因缺少分组查看权限而无法选择分组（若对比账号同时兼任「采购主管」等角色，可能掩盖单「采购员」角色的缺口）。
+- **元数据与独立权限项**：
+  - **联系人操作**（底层同时写 `T_BD_COMMONCONTACT` 与 `t_BD_SupplierContact`，无需单配 `BD_CommonContact`，受 `BD_Supplier` 自身 5 项权限控制）：
+    - `BD_New_Contact`（新增联系人，内码 `5f221df2466398`，同时控制 `NewContact` 与 `AddContactLine`）
+    - `BD_Modify_Contact`（修改联系人，内码 `5f221e3b466407`）
+    - `BD_Delete_Contact`（删除联系人，内码 `5f221e6b467ec7`）
+    - `SCM_ForbidContact`（禁用联系人，内码 `5b46fb94886ffb`）
+    - `SCM_UnForbidContact`（反禁用联系人，内码 `5b46fbc6886ffe`）
+  - **供应商分组操作**（绑定在 `BD_Supplier` 自身的 4 项分组权限上，不随 `BOS_VIEW`/`BOS_NEW` 自动放行）：
+    - `BOS_GROUP_VIEW`（查看分组，内码 `43da5e07837a498bb1d6994e3a16c43d`）—— 建档选填已有供应商分组及查看左侧分组树的必备项；
+    - `BOS_GROUP_ADD`（新增分组，内码 `ff6cd13a502f43fc9b3c2614d43e382d`）、`BOS_GROUP_MODIFY`（编辑分组，内码 `f17a85251d634f70888cd972502729fa`）、`BOS_GROUP_DELETE`（删除分组，内码 `59f6bff0ff6042ada2510b50c65fa131`）—— 维护分组目录树时按需授权。
+- **配置与刷新要点**：为角色开通供应商建档/维护权限时，须按用户明确授权范围一并核对联系人 5 项与分组权限（至少核对 `BOS_GROUP_VIEW`）；经 `SEC_FuncPermissionInfo` 保存后，必须按 `kingdee-system-admin` 约定逐一保存该角色全部成员 `SEC_User`（仅 `{FUserID}`），并通过独立会话与数据库双通道复查（前端运行时效果仍以目标账号重新登录实测为准）。

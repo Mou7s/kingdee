@@ -36,7 +36,7 @@ AP_PAYABLE 实时区分 FSETACCOUNTTYPE：2 暂估按明确授权处理；3 财�
 
 ## 参考索引
 
-- `references/finance/ar-settlement-match-trace.md` — 应收单「已结算/未结算金额」来源追溯
+- `references/finance/ar-settlement-match-trace.md` — 应收单「已结算/未结算金额」来源追溯与款到发货预收挪用排查
 - `references/finance/cost-allocation-equival-coefficient.md` — UPH费用权重与在产约当系数的区别、20172公式实证、固晶四层BOM自动判定规则及自定义费用分配标准流程
 - `references/finance/department-retirement-cost-references.md` — 部门停用/删除前的工序在产、费用、总账维度和成本中心引用检查
 - `references/finance/external-reconciliation-spreadsheets.md` — 外部对账表处理参考

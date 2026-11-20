@@ -33,6 +33,7 @@ const pickBin = get("--pick-bin") ?? get("--bin");
 const pickBinId = pickBin !== undefined ? Number(pickBin) : undefined;
 const batchRule = get("--batch-rule") ?? "PHBM004";
 const noSale = args.includes("--no-sale"); // 销否类（如 11102 劈刀/备件）必须显式关闭销售
+const noBatchAffectCost = args.includes("--no-batch-affect-cost"); // 默认批号库存属性 04 勾选影响出库成本（与 DS030/DA030 等外购样板一致）
 const overRate = get("--over") ?? "0";
 const shortRate = get("--short") ?? "0";
 const planStrategy = get("--plan") ?? "1";
@@ -48,7 +49,7 @@ console.log(`编码: ${number}`);
 console.log(`名称: ${name}`);
 console.log(`规格: ${spec}`);
 console.log(`分组: ${group}  存货类别: ${category}  ERP分类: ${erpClass}  税率: ${taxRate}/${taxType}`);
-console.log(`单位: ${unit}  批号: true 规则: ${batchRule}`);
+console.log(`单位: ${unit}  批号: true 规则: ${batchRule}  批号影响成本: ${!noBatchAffectCost}`);
 console.log(`默认仓: ${stock} 仓位: ${binId}   领料仓: ${pickStock} 仓位: ${pickBinId}`);
 console.log(`计划策略: ${planStrategy}  EOQ: ${eoq}  完工超收/短收: ${overRate}/${shortRate}`);
 console.log(apply ? "模式: APPLY（真实写入）" : "模式: DRY-RUN（仅预览，加 --apply 执行）");
@@ -140,6 +141,13 @@ const model = {
     FStandHourUnitId: "3600",
     FBackFlushType: "1",
   },
+  FEntityInvPty: [
+    { FInvPtyId: { FNumber: "01" }, FIsEnable: true, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "02" }, FIsEnable: binId !== undefined, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "03" }, FIsEnable: false, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "04" }, FIsEnable: true, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: !noBatchAffectCost },
+    { FInvPtyId: { FNumber: "06" }, FIsEnable: false, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+  ],
 };
 
 console.log("正在保存...");
@@ -176,11 +184,12 @@ const b = d.MaterialBase?.[0] ?? {};
 const s = d.MaterialStock?.[0] ?? {};
 const p = d.MaterialProduce?.[0] ?? {};
 const pl = d.MaterialPlan?.[0] ?? {};
+const pty04 = d.MaterialInvPty?.find((x) => x.InvPtyId?.Number === "04");
 console.log("=== 执行后复查（View） ===");
 console.log(`编码/名称/规格: ${d.Number} / ${d.Name?.find((x) => x.Key === 2052)?.Value} / ${d.Specification?.find((x) => x.Key === 2052)?.Value}`);
 console.log(`状态: ${d.DocumentStatus}  禁用: ${d.ForbidStatus}  分组: ${d.MaterialGroup?.Number}`);
 console.log(`ERP/类别: ${b.ErpClsID} / ${b.CategoryID?.Number}`);
 console.log(`购/存/销/产: ${b.IsPurchase}/${b.IsInventory}/${b.IsSale}/${b.IsProduce}  单位: ${b.BaseUnitId?.Number}`);
-console.log(`批号: ${s.IsBatchManage}  规则: ${s.BatchRuleID?.Number}  仓: ${s.StockId?.Number}  仓位Id: ${s.StockPlaceId_Id}`);
+console.log(`批号: ${s.IsBatchManage}  规则: ${s.BatchRuleID?.Number}  批号影响成本: ${pty04?.IsAffectCost}  仓: ${s.StockId?.Number}  仓位Id: ${s.StockPlaceId_Id}`);
 console.log(`领料仓: ${p.PickStockId?.Number}  领料仓位Id: ${p.PickBinId_Id}  超短收: ${p.FinishReceiptOverRate}/${p.FinishReceiptShortRate}`);
 console.log(`计划策略: ${pl.PlanningStrategy}  EOQ: ${pl.EOQ}  税: ${b.TaxRateId?.Number}`);

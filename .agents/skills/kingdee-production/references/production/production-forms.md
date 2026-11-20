@@ -28,6 +28,7 @@
 | `PLN_PLANORDER` | 计划订单 | 本账套常为 **0** → 未跑 MRP |
 | `SFC_OperationPlanning` | 工序计划 | |
 | `SFC_OperationReport` | 工序汇报 | 分录 Save 键名 `FEntity` |
+| `ENG_Route` | 工艺路线 | 2026-11-10 `View/Save/Submit/Audit` 实测：序列单据体 `FEntity`（`RouteOperSeq`），工序子单据体 `FSubEntity`（`RouteOperDetail`）；分组字段 `FRouteGroupId` 可用 `QueryGroupInfo` 查询 |
 
 历史探测脚本：`scripts/bun_test/check_pick*.js`、`probe_pickmtrl*.js`。  
 scratch 示例：`scripts/scratch/2026-08/_probe_pickmtrl_today.js`。
@@ -245,6 +246,13 @@ FDate>='YYYY-MM-DD' and FDate<'YYYY-MM-DD+1' and FDestStockId.FNumber='CTK08'
 - 证据：`output/rework-origin-20261028/` 的销售/生产/BOM View、同型号查询和转换元数据XML；探针 `scripts/scratch/2026-10/probe_rework_origin*.js`、`probe_rework_conversion.js`。业务查询通过WebAPI，元数据仅SQL只读。
 
 - 2026-10-28 后续即时库存复查：NC00000006全仓6条库存记录（含零库存行）货主均CTK000400，非零仅现场仓三批12.648/145.452/50.592K，共208.692K；这只能证明当前该料号库存全部归金诚信，不能证明共用BOM专用。NC前缀非零库存还包含NCE0750001、客户CTK001025（瑶芯微），不可将全部加工材料概括为金诚信。不得依据当前唯一库存货主，将共用BOM固定为该客户。证据 `output/rework-inventory-owners-20261028/`；数量随业务领料变化，复用重查。
+
+### 工序领料生成空明细报“分录‘明细’是必填项”机制（2026-11-16）
+
+- 工序领料平台点击生成领料单后弹出「分录“明细”是必填项」、领料单表体为空但底部库存栏仍显示目标物料、保管者（货主）及`主库存单位数量=0`时，通常不是平台生成功能损坏，而是`PRD_PPBOM`子项货主与即时库存货主不一致导致零库存清行。
+- 实证链路（元数据 `T_META_CONVERTRULE` + `T_BAS_USERPARAMETER`）：工序领料转换规则 `PRD_PPBOM2PICKMTRL_OPERATION`（及其扩展 `d6bc79b9-7c51-42b2-8918-d2ebbf945da0`）将 `FBaseActualQty` 初始化为 `0`，强制限定仓库为 `CTK08`（`FStockId = 111216`），继承 `PRD_PPBOM` 子项 `FOwnerTypeId`/`FOwnerId`，并执行 `LotPickingBusinessServiceMeta`（批号捡货）按货主、仓库、状态过滤即时库存。目标货主在 `CTK08` 无可用库存时，`ActualQty` 保持为 `0`；叠加领料单用户参数 `PRD_PICK_BILLPARAM` 默认启用 `IsClearZeroRow=True`（保存时清除实发为零分录，与 `FSaveAndSubmit=True` 联动），保存/自动保存时将零实发分录清除，从而触发「分录“明细”是必填项」。
+- 排查时同时查同销售订单下全部关联 `PRD_MO` / `PRD_PPBOM`（如客户货主仍误为组织 `BD_OwnerOrg:100` 而非实际库存对应的 `BD_Customer`），并与已成功领料的同料号历史 `PRD_PPBOM` 对照修改记录；未确认所有权与取得授权前，不擅自修改用料清单货主或迁移库存。
+- 全库根因只读统计（2026-11-16 快照，复用前重查）：① 客供/返工来料经 `STK_OEMInStock`（受托加工材料入库单）入账，导致当前库内 51 种非零物料（94 条记录）库存货主为 `BD_Customer`；② 需求端全库 `XSDD03_SYS` 销售分录（2026-09-15 起 585/585 条）、全库 `PRD_MO`（历史全量 18,515/18,515 条，且 `FTRUSTTEED=0`）及全库有效已审核 `T_ENG_BOMCHILD`（33,496/33,496 条，`FOWNERID=0`）全部设为 `BD_OwnerOrg`，且 `PRD_SALEORDER2MO` 仅传递客户到参考字段而不改货主；③ 2026-09-15 起全部 149 条 `BD_Customer` 货主 `PRD_PPBOM` 分录中，生单即带客户货主为 `0` 条，100% 均由人工事后反审核改单生成。因部分物料属于共用 BOM，不能在 BOM 直接写死单一客户，需在审单核对阶段排查或经业务/财务确认后加受控带出逻辑。
 
 ### 客供晶圆与蓝膜料号不一致的领料排查（2026-10-30）
 

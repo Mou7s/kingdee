@@ -125,6 +125,11 @@ const model = {
   SubHeadEntity2: {
     FSaleUnitId: { FNumber: unit },
     FSalePriceUnitId: { FNumber: unit },
+    FIsReturn: false,
+    FISAFTERSALE: true,
+    FISPRODUCTFILES: true,
+    FWARRANTYUNITID: "D",
+    FOutLmtUnit: "SAL",
   },
   SubHeadEntity3: {
     FPurchaseUnitId: { FNumber: unit },
@@ -135,6 +140,7 @@ const model = {
   },
   SubHeadEntity4: {
     FPlanningStrategy: "1",
+    FMfgPolicyId: { FNumber: "ZZCL001_SYS" },
     FPlanIntervalsDays: 1,
     FEOQ: 1,
     FMaxPOQty: 100000,
@@ -153,6 +159,13 @@ const model = {
     FFinishReceiptOverRate: 0,
     FFinishReceiptShortRate: 0,
   },
+  FEntityInvPty: [
+    { FInvPtyId: { FNumber: "01" }, FIsEnable: true, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "02" }, FIsEnable: true, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "03" }, FIsEnable: false, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "04" }, FIsEnable: true, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: true },
+    { FInvPtyId: { FNumber: "06" }, FIsEnable: false, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+  ],
 };
 
 console.log("\n正在保存...");

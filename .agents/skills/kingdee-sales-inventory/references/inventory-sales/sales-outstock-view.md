@@ -48,7 +48,9 @@ ORDER BY l.FDATETIME;
 - 保存→提交→审核→打印预览都会落日志；`打开单据` 行带 `EDIT`/`VIEW` 与操作人 IP/主机名，可判断「谁此刻在动这张单」。
 - **本组织审核销售出库会自动同步生成应收单**：审核那一秒日志里先出现「对应组织 XXX 设置是否自动生成应收单为 True 生成方式为 1:Sync」与「编号为 TK… 的销售出库单，生成应收单」，紧跟着同一批时间戳出现该应收单的保存/提交/审核（`FOBJECTTYPEID='AR_receivable'`、`FINTERID` 是应收 FID），并另有一条 `FOBJECTTYPEID='SAL_OUTSTOCK'`、`FINTERID='0'` 的重复行写该应收单号。
 - **反审核出库单前必须先把这张自动应收单反审核并删除**，否则出库单反不掉；因此看 `D` 状态的出库单时，库里按来源单号查应收常常是 **0 行——这是正常的**，不等于「从来没生成过」。判定有无生成过一律用日志，不用当前表。
-- `T_BAS_OPERATELOG` 现表按单号 `LIKE` 查可行；**`T_BAS_OPERATELOGBK` 全表扫会超时**，归档日志必须加 `FDATETIME` 时间段 + `FOBJECTTYPEID` 限定。
+- `T_BAS_OPERATELOG` 现表仅保留当日未归档日志，按单号 `LIKE` 查可行；**`T_BAS_OPERATELOGBK` 全表扫会超时**——该表仅建有 `(FDATETIME)` 与 `(FUSERID, FDATETIME, FOBJECTTYPEID)` 索引，跨度达 1 个月以上的 `FDATETIME + LIKE` 仍可能退化为全表扫描超时。
+- **跨月/跨年全周期改单核查快速路径（2026-11-12 实测）**：附属表 `T_BAS_OPERATELOGBK_S`（及现表 `T_BAS_OPERATELOG_S`）建有非聚集索引 `IDX_BAS_OPERATELOGBK_S_CODE (FENCODEID)`。单据保存、提交、撤销、审核、反审核、删除等写操作均在 `FENCODEID` 记录单据号，通过 `T_BAS_OPERATELOGBK_S s WITH (NOLOCK) JOIN T_BAS_OPERATELOGBK l WITH (NOLOCK) ON l.FID = s.FID WHERE s.FENCODEID = @billNo` 可在数秒内穿透全量归档日志核实全部写操作；而 `打开单据`、`打印`、`下推`、`选单` 等操作的 `FENCODEID` 为空（且 `打开单据` 的 `FINTERID` 常为空串，`pkValue` 在 `FDESCRIPTION` 内），再围绕写操作时间戳前后 1~3 天窄窗口或按 `(FUSERID, FDATETIME)` 索引补齐上下文。
+- 库存流水交叉核验：`T_STK_INVENTORYLOG` 按 `FBILLNO = @billNo AND FSOURFORMID = 'SAL_OUTSTOCK'` 核对出库扣减次数与时间（不可仅按 `FSOURENTRYID` 过滤，不同单据表分录内码会撞号）。
 - `FDATETIME` 存的是服务器本地时间：先与该库 `SELECT GETDATE()` 对一次口径再换算时间线。
 
 ## 反审核后 `FApproveDate` 不可信

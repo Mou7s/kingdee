@@ -51,6 +51,17 @@
 
 2026-10-16 新建时一次写入验证：新增物料的 Save 模型可用 `FEntityInvPty`，按库存属性编码 `FInvPtyId.FNumber` 指定 `FIsEnable/FIsAffectPrice/FIsAffectPlan/FIsAffectCost`，不携带模板分录内码。AKG6N028GL 成品 `NBM0760216`、AK60SG4D2-C 蓝膜/晶圆 `N102012364/365` 已在首次 Save 写入批号项 `04` 的 `FIsAffectCost=true`，最终 View 验证三条均 true、C/A，无需事后反审核。这是本次建料参数，不授权改动历史同族；同族模板的批号规则和仓位仍按实时资料核对。证据：`scripts/scratch/2026-10/akg6n028gl-product.js`、`scripts/scratch/2026-10/akg6n028gl-wafer.js`、`output/akg6n028gl-source/final-*.json`。该产品资料仅写编带卷装；此前擅自在正式规格写入“（盘装数量待确认）”的处理已于2026-10-16被用户明确否定，不得作为建料方法复用。用户随后要求“删掉先”，按实时原值守卫删除该括号内容，保留编带卷装及其余规格；蓝膜 BOM `N102012364_V1.0` 已列表/View 双查父364→子365、1:1 K、0-lm、C/A。状态仅为当次结果。
 
+2026-11-11 外购 `D` 段同步补齐：实测 `DS030`（外购肖特基 `SMC`）组内 `NDS0300001`~`NDS0300028` 共 28 条有效标准样板均为 `BatchRule=PHBM004` 且库存属性批号项 `04` 的 `IsAffectCost=true`，而此前 `scripts/tools/create_external_material.js` 未传 `FEntityInvPty` 会导致新建外购料落成 `IsAffectCost=false`。已更新 `create_external_material.js` 在首次 Save 默认一并写入 `FEntityInvPty`（`01 仓库`、`02 仓位`[随 `--bin` 启用]、`04 批号` 启用且 `FIsAffectCost=true`，如需模板例外可传 `--no-batch-affect-cost`），并在 View 回查打印批号影响成本状态。本次经用户确认新建 `NDS0300030`（名称 `SS34`，规格 `SMC`，分组 `DS030`），与样板 `NDS0300028` 执行 `material_template_diff.js` 逐项及库存属性比对 0 差异（状态 `C/A`，内码 `951364`）。证据：`output/nds0300030-ss34-smc-verified-20261111.json`。
+
+### 自制成品建对应外购料号的规格简化与跨组占号核对（2026-11-16 用户明确口径）
+
+- **规格写法口径**：基于现役自制/代工成品（截图通常带 `封装/盘装/档位/丝印` 四段式长规格）另建对应外购料号时，外购料号规格默认**只写封装**（如 `PDFN3X3`、`TO-252`），不照抄自产编带盘装与周期码/无卤点后缀（仅在用户明确要求以丝印区分时保留）。
+- **全库统计验证（2026-11-16 快照）**：实查 `DM*` 有效物料 203 条中 162 条（79.8%）仅写封装（2026 年以来 66 条中 48 条/72.7%）；2026-08 以来全 `D*` 外协成品 107 条中 94 条（87.9%）仅写封装。即使个别分组内既有旧料（如 `DM072` 的 `NDM0720001`/`NDM0720002`）历史写了四段式，新建对应外购料仍优先提议仅写封装并由用户确认；若全库已存在同系列去前缀外购料（如名称 `50P02D33` 的 `NDM0720002`），须在建料前查明差异及历史使用并交用户决定是否另建。
+- **分组与跨组占号提醒**：`DM`（外协 MOSFET）下无 `DM075`，PDFN3X3-8L 对应现有分组 `DM072`（`DFN3*3-8L`）；且 `NDM0720003` 已被占用在 `DM013`（`CTKD20N20`），取号必须同时按 `FNumber like 'NDM072%'` 排序查重，不能仅凭 `DM072` 组内最大号顺延。
+- **本次实证落库**：按用户确认使用 `create_external_material.js` 新建 `NDM0720004`（`CTK50P02D33` / `PDFN3X3` / `DM072`，对应自制 `NAM0750003`，内码 `951520`）。经 `ExecuteBillQuery` 列表与 `View` 独立回查，状态 `C/A`、`ERP 1`、`CHLB09_SYS`、`K`、`CTK13/100042`、`PHBM004`、批号影响成本 `true`，与同组样板 `NDM0720002` 逐项比对 0 差异、与 `NDM0130026` 仅分组不同。证据：`output/ndm0720004-ctk50p02d33-verified-20261116.json`。
+
+2026-11-12 自制/代工成品工具同步补齐：`scripts/tools/create_material_idm.js` 此前同样未传 `FEntityInvPty`，会导致新建成品库存属性批号项 `04` 的 `IsAffectCost` 落成 `false`（偏离 `BM007` 等现役样板的 `true`）。已更新 `create_material_idm.js` 在首次 Save 默认写入 `FEntityInvPty`（`01 仓库`、`02 仓位`[随 `place > 0` 启用]、`04 批号` 启用且 `FIsAffectCost=true`，例外可传 `--no-batch-affect-cost`）、`SubHeadEntity5.FIsMainPrd=true` 及空仓位省略守卫。新建 `NBM0070073`（`TPM60V4PS3L 单芯`，`SOT23-3L/3K盘/无/KM`，生产车间 `BM000005`）与同组样板 `NBM0070072` 执行 `material_template_diff.js` 比对 0 差异（状态 `C/A`，内码 `951426`）。证据：`output/nbm0070073-tpm60v4ps3l-verified-20261112.json`。
+
 ### TPM20P7S3L-23M / TPE50AB4WT 截图与图纸核对（2026-10-31）
 
 - 用户两张订单截图：BOM版本分别TPM20P7S3L-23M、TPE50AB4WT，包装均3,000；丝印分别20P7C、50B。PDF装配图确认第一款单芯，xls的D2=2及双Die打线图确认第二款双芯。不能将xls的“单芯划”误判为成品单芯；该字段说明划片方式。截图明确丝印优先于封装图内通用旧标记（xls图片另有B）。
@@ -131,7 +142,7 @@ bun scripts/tools/create_material.js -- ... --apply
 | `SubHeadEntity1.FIsBatchManage` | 批号管理 | `N101/N102` 与外购 N 前缀（NDM/NDA/NDS/NDZ/NDE…）一律 `true`，漏传会建出 `false` |
 | `SubHeadEntity1.FStockId` + `.FStockPlaceId` | 默认仓库/仓位 | 仓位传**数值 ID**（如 CTK13→100042）；启用仓位仓只传仓库会静默留空默认仓位 |
 | `SubHeadEntity3.*` | 采购单位/价格单位 | 同基本单位 |
-| `SubHeadEntity5.*` | 生产/BOM 单位、领料仓 | `FBOMUnitId` 同基本单位；`FPickStockId:{FNumber:...}` + `FPickBinId:<数值ID>` |
+| `SubHeadEntity5.*` | 生产/BOM 单位、默认生产车间、领料仓 | `FBOMUnitId` 同基本单位；成品 `FWorkShopId:{FNumber: spec.includes("LL-") ? "BM000015" : "BM000005"}`（玻封部/塑封部）；`FPickStockId:{FNumber:...}` + `FPickBinId:<数值ID>` |
 
 ### 新建带仓位仓库的专用报文（已验证，无需 FEntryId）
 
@@ -214,6 +225,8 @@ bun scripts/tools/create_material_idm.js --number NAS0050041 --name "TK1SS388" \
 | 组 | 业务 | 模板 |
 |---|---|---|
 | `AS005` SOD-523 自制成品 | 二极管/开关管 | `CHLB05_SYS / ERP2 / K / 购否·存是·销是·产是 / 批号是 PHBM004 / 默认仓 CTK10+仓位 100035 / 领料仓同仓同仓位 / 超收500·短收5 / 计划策略1 / 主产品是` |
+| `AI008` SOT23-5L 自制IC成品 | IC 电源/充电管理等 | 同上（2026-11-11 通过 `GroupSave` 在 `AI` 下新建 `AI008 SOT23-5L`），仓/仓位 `CTK10 + 100036`（`SOT-23成品仓`），生产车间 `BM000005`（塑封部），库存属性批号项 `04` 的 `FIsAffectCost=true` |
+| `AM077` TOLL 自制成品 | `CTKGH*TOL` 系 MOSFET | 同上，仓/仓位 `CTK10 + 100115`（编号 `25=TOLL成品仓`），生产车间 `BM000005`（塑封部）；见 2026-11-10 `NAM0770001 CTKGH320N10TOL` 实证 |
 | `BM013` TO-252 代工成品 | AP*D 系 | 同上，仓/仓位改 `CTK11 + 100051` |
 
 坑：
@@ -225,6 +238,8 @@ bun scripts/tools/create_material_idm.js --number NAS0050041 --name "TK1SS388" \
 ## 规格里的印字段从哪来
 
 同批资料里**同型号的其它封装条目**是最强依据：同一批建的 PDFN5X6 条目写成 `PDFN5X6/5K盘/无/AP80P10NF+RC1+客户周期码`，则 TO-252 那条也应带档位码 `Logo+AP80P10D+RC1+客户年记周记`，不能照本组历史通行写法省掉 `RC1`。候选列 2~3 个让用户拍板后再写入；用户选定后按选定写法一次写全。
+
+**2026-11-19 用户明确纠正**：AP 系丝印中位于型号与客户周期码之间的非固定位置代码（如 `RN6` 这一位置）不是固定丝印，后续新建默认**不写入**规格型号；上文 `RC1` 案例仅为历史快照，现行口径见 `material-scope-invariants.md`。
 
 ## 组模板案例备查（原 SKILL.md 正文，按主题归档）
 
@@ -254,7 +269,7 @@ bun scripts/tools/create_material_idm.js --number NAS0050041 --name "TK1SS388" \
 
 ### SYT（客户A1）PDFN3*3 归 BQ007，不是 BM075
 
-- **SYT（客户A1）`SYT*X3` 系 PDFN3*3 成品归 `BQ007`（不是 `BM075`）**：模板 `CHLB05_SYS/ERP2/K/购否存是销是产是/批号是 PHBM004/仓 CTK11+仓位 100045/领料同/超短收 500·5`，规格 `PDFN3X3/5K盘/无/{型号}+客户周期码`；对应客供晶圆（如 `ALE1041`）走旧 `10201` 组，用 `CTK01+100001` / `CTK04+100015` 且批号规则要传 `PHBM004`——与 `102011/102012`（仓位 0、规则空）不同，不能互抄。详见 `references/materials/syt-pdfn3x3-ale-wafer-pattern.md`。
+- **SYT（客户A1）`SYT*X3` 系 PDFN3*3 成品归 `BQ007`（不是 `BM075`）**：模板 `CHLB05_SYS/ERP2/K/购否存是销是产是/批号是 PHBM004/仓 CTK11+仓位 100045/领料同/超短收 500·5`，规格 `PDFN3X3/5K盘/无/{型号}+客户周期码`；对应客供晶圆（如 `ALE1041`）走旧 `10201` 组，用 `CTK01+100001` / `CTK04+100015` 且批号规则要传 `PHBM004`（注：自 2026-11-17 起 `102011/102012` 也已统一改回模板 B `100001/100015 + PHBM004`）。详见 `references/materials/syt-pdfn3x3-ale-wafer-pattern.md`。
 
 ### 客户G（GOSTONE）GN 系 PDFN5x6 工程批
 
@@ -262,7 +277,7 @@ bun scripts/tools/create_material_idm.js --number NAS0050041 --name "TK1SS388" \
 
 ### APMG 系封测规范三件套
 
-- **APMG 系（客户Y）封测规范三件套**：`{型号}封测规范.xlsx`（封装）+ `{晶圆型号}.pdf`（die）= 成品 + 客供晶圆对 3 条。成品 `AP…D` 走 `BM013`、名称 `{型号} 单芯`、规格 `TO-252/2.5K盘/无/Logo+{型号}+客户年记周记`（规范里的“需要分档/丝印按分档打印”**不写进规格**，用户已确认）；晶圆对分组随族变——APMG 最近几对已从旧 `10201` 改为 `-L`→`102012` / 裸名→`102011`，判定看同族**最近完整对**，`-L` 取较小号且两条连号共用 `N10201` 段（`102012` 类别 `CHLB04_SYS`+ERP3+委外是+`IsMainPrd true`，`102011` 类别 `CHLB01_SYS`+ERP1+委外否；仓 CTK01 / CTK04，**仓位均为 0**，批号是且规则留空）。建完补蓝膜 BOM（分 `0-lm`、1:1、单位 K）；`ENG_BOM` 的 View 是大写键（`GROUP`/`TREEENTITY[].NUMERATOR`），用小写读会静默 `undefined`。模板与落库记录见 `references/materials/apmg-to252-wafer-pair.md`。
+- **APMG 系（客户Y）封测规范三件套**：`{型号}封测规范.xlsx`（封装）+ `{晶圆型号}.pdf`（die）= 成品 + 客供晶圆对 3 条。成品 `AP…D` 走 `BM013`、名称 `{型号} 单芯`、规格 `TO-252/2.5K盘/无/Logo+{型号}+客户年记周记`（规范里的“需要分档/丝印按分档打印”**不写进规格**，用户已确认）；晶圆对分组随族变——APMG 最近几对已从旧 `10201` 改为 `-L`→`102012` / 裸名→`102011`，判定看同族**最近完整对**，`-L` 取较小号且两条连号共用 `N10201` 段（`102012` 类别 `CHLB04_SYS`+ERP3+委外是+`IsMainPrd true`，`102011` 类别 `CHLB01_SYS`+ERP1+委外否；仓 CTK01 / CTK04。注：早期曾试行仓位 0 规则留空的模板 A 口径已于 2026-11-17 经用户明确约定作废，历史 118 条含 APMG/APMT 等全部改回仓位 `100001/100015 + PHBM004` 模板 B）。建完补蓝膜 BOM（分 `0-lm`、1:1、单位 K）；`ENG_BOM` 的 View 是大写键（`GROUP`/`TREEENTITY[].NUMERATOR`），用小写读会静默 `undefined`。模板与落库记录见 `references/materials/apmg-to252-wafer-pair.md`。
 
 ### 封测规范到物料清单（封装型号↔晶圆映射全流程）
 
@@ -297,6 +312,8 @@ bun scripts/tools/create_material_idm.js --number NAS0050041 --name "TK1SS388" \
 ### 自制 IDM SOT-23（AD006/AD027）模板
 
 - **自制 IDM SOT-23（`AD006`=(6R) / `AD027`=(27R)，二极管-开关管）模板（2026-09-16 TKBAV70 实证）**：两组口径完全一致——`CHLB05_SYS / ERP2 / 单位 K / 购否·存是·销是·产是 / 批号是+PHBM004 / 仓 CTK10+仓位 100036 / 领料仓 CTK10+100036 / 超收500·短收5 / 计划策略1 / SL02_SYS`，编号 `NAD006xxxx`/`NAD027xxxx` 各自顺延；名称只写型号（如 `TKBAV70`，不带单/双芯后缀），规格四段为 `封装/盘装/档或“无”/印字(+点位说明)`。**印字同型号可多套并存，必须逐字查规格**：`TKBAV70` 有 `A4`、`A4 首字母A下方带点`、`A4 首字母下有一点`、`A4 A字有点与字重叠 首字母下有一点`，新增 `KL3 首字母下方带点` 前要按印字串（`%KL3%`）查重。点位说明的中文写法不统一（`首字母下方带点`/`首字母下方加点`/`首字母下有一点`/`首字下方带无卤点`），沿用与目标型号最接近的现役写法并让用户确认；这类自制料的印字只写在规格文本里，**不启用辅助属性值**（`T_BD_MATERIALAUXPTY` 无启用行，也不用建印字值池）。**同型号同名是常态，建料脚本必须放行名称重复**：`create_material_idm.js` 默认把 `FName` 命中当预检失败，建 AD006/AD027 同型号新印字前要加 `--allow-same-name`（只拦编码占用；同分组同规格仍只提示、由用户确认）。执行前按 `FNumber like 'NAD027%'` 取段内最大号顺延（缺号不补）；**同型号同规格若已存在现役料（如 `NAD0270016` 与后来经用户确认新建的 `NAD0270100` 规格一字不差），必须先报“已有现役料 + 业务量”再用 `clarify` 让用户选复用还是仍新建**，确认后才写，建后与样板逐字段比对（AD027 全字段一致：CHLB05_SYS/ERP2/K/购否存是销是产是/批号是 PHBM004/CTK10+100036/超500短5/计划1）。
+
+- **自产建料查同款与「指定丝印」命名口径（2026-11-13 `NAD0270103` 实证）**：查同款现役物料以判定分组或参考模板时，**不参考无 `N` 前缀的历史老料号**（2026-11-13 用户明确要求），以 `FNumber LIKE 'N%'` 的现役已审核未禁用物料为准（例如 `TESDB24T2B` 的无 `N` 老料 `AE0270009` 在 `AE027`，而现役 `N` 料 `NAE0060009`/`NAD0270098` 均在 `AD027`，故归 `AD027`）。自产“指定丝印”成品名称按近期口径写 `{型号}（指定丝印）`（如 `TESDB24T2B（指定丝印）`），规格第四段写 `指定丝印`（`SOT-23(27R)/3K盘/无/指定丝印`），并同步写入默认生产车间 `BM000005`（塑封部）与批号影响出库成本 `true`。本次通过 `create_material_idm.js` 建成 `NAD0270103`（`Id=951484`），与 `NAD0270102` 执行 `material_template_diff.js` 逐字段及库存属性比对一致，双通道回查为 `C/A`；证据见 `output/nad0270103-tesdb24t2b-verified-20261113.json`。
 
 ### 301 设备备件子组必须列全
 
@@ -410,6 +427,8 @@ bun scripts/tools/create_material_idm.js --number NAS0050041 --name "TK1SS388" \
 2026-10-28 同日后续用户要求删除规格末尾白板：两条均按实时前值守卫、dry-run、UnAudit → 最小 FSpecification Save → Submit → Audit，最终规格为 `PDFN3X3/5K盘/无`，列表/View 均 C/A，所列非目标模板属性无差异。前段四段规格为创建时历史值，以此次后续确认为准；用户说“印字没有”不应永久推广成必须填写“白板”，按最终明确规格执行。证据：`scripts/scratch/2026-10/remove-akt3050-white.js`、`output/NCE0750001-spec-updated-20261028.json`、`output/NCE0750002-spec-updated-20261028.json`。
 
 2026-10-28 最终补充：用户随后要求“无也去掉”，两条规格最终为 `PDFN3X3/5K盘`。按上述最小规格修改流程完成，列表/View 均 C/A，所列非目标属性无差异。此前带 `/无` 的值同样为历史中间值；该对加工料号以此最终口径为准，不强制添加无/白板占位。证据：`scripts/scratch/2026-10/remove-akt3050-none.js`、`output/NCE0750001-spec-final-20261028.json`、`output/NCE0750002-spec-final-20261028.json`。
+
+2026-11-13 起，后续新建 `C 编带加工` 专用料号的统一规范（规格 `封装/盘装`、`FIsSale=true`、`FIsReturn=true`）见 [material-scope-invariants.md](material-scope-invariants.md#c-组编带加工专用料号规格与销售开关统一标准2026-11-13-用户明确约定)。
 
 ### 已有物料关闭允许采购、保持未审核（2026-10-29）
 

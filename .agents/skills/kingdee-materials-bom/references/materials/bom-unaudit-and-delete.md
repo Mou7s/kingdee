@@ -19,9 +19,19 @@
    - 检查生产用料清单 `PRD_PPBOM` 或委外用料清单 `SUB_PPBOM` 是否存在关联。
    - 若存在生产引用，禁止直接删除，必须先向用户说明并停止。
 
-## 三、标准 WebAPI 执行步骤
+## 三、标准 WebAPI 工具与执行步骤
 
-写操作脚本遵循默认 dry-run，显式 `--apply` 触发执行：
+优先使用仓库通用参数化工具 `scripts/tools/delete_bom.js`（默认 dry-run，自动完成快照留痕、下游引用核对、反审核、删除与执行后复查；显式加 `--apply` 才执行）：
+
+```bash
+# 1. 默认 dry-run 预检与快照留痕
+bun scripts/tools/delete_bom.js <BOM版本号> --material <父项物料编码>
+
+# 2. 核对无误且已获授权后执行反审核与删除
+bun scripts/tools/delete_bom.js <BOM版本号> --material <父项物料编码> --apply
+```
+
+核心接口顺序如下：
 
 ```javascript
 import { K3CloudWebAPI } from "../../lib/k3/index.js";

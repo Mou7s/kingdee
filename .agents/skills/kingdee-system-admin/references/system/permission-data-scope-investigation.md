@@ -109,6 +109,10 @@
 
 Nitro 路由中的 `getAuthSession` + `hasPermission` 只证明“谁能调用接口”，不等于销售员数据范围。若服务端 SQL 直接查询 `T_AR_RECEIVABLE`、`T_BD_CUSTOMER` 等表，必须把当前会话映射到业务员/客户范围，并在列表和明细接口都在服务端过滤；不能只靠前端筛选。
 
+### 6. 主档新增/修改权限不包含子页签与分组独立操作权限
+
+部分基础资料的子页签按钮及主档分组查看/维护绑定在同一业务对象的独立权限项上，仅勾选 `BOS_VIEW` / `BOS_NEW` / `BOS_MODIFY` 并不会自动放行。例如 `BD_Supplier`（供应商）的「联系人」页签新增/修改/删除/禁用/反禁用受 `BD_New_Contact`、`BD_Modify_Contact`、`BD_Delete_Contact`、`SCM_ForbidContact`、`SCM_UnForbidContact` 控制，表头必填项「供应商分组」的选择受 `BOS_GROUP_VIEW`（查看分组）及 `BOS_GROUP_ADD/MODIFY/DELETE` 独立控制（详见 `../../kingdee-procurement/references/procurement/supplier-reconnaissance.md` 第 10 节）。核查对象权限时须拉取该对象在 `T_SEC_FUNCPERMISSIONENTRY` 中的全部权限项，不可只过滤常规单据级 `BOS_*` 编码。
+
 ## 输出格式建议
 
 最终结论分开写：
@@ -545,7 +549,7 @@ Nitro 路由中的 `getAuthSession` + `hasPermission` 只证明“谁能调用�
 
 - 先通过 `SEC_User` 查询唯一账号并 View 组织角色，再按角色查 `SEC_FuncPermissionInfo` 权限头；按真实 FItemID 去重、分批 View，及时保存原始结果后再解析规则，避免长批次因汇总失败丢失证据。
 - 当前 View 返回的引用字段采用不同命名：角色引用是 `FNumber/FName`，业务对象引用是 `Name`，权限项引用是 `Number/Name`；不能照角色结构读取权限项。用样本核实结构后，按对象及权限项内码计算有权并集，禁止优先，操作规则不能只保留任一来源。
-- 无规则可能返回单个空格 `FDataRule=' '`，须先 trim 再决定是否调用 `SEC_DataRule` View；空格直接传入会报“单据内码为空，无法打开单据”。规则顶层动态条件按既有规则解释，不能用调查账号展开值代替目标用户。
+- 无规则可能返回单个空格 `FDataRule=' '`，须先 trim 再决定是否调用 `SEC_DataRule` View；空格直接传入会报“单据内码为空，无法打开单据”。规则顶层动态条件按既有规则解释，不能用调查账号展开值代替目标用户。SQL 查询 `T_SEC_FUNCPERMISSION` 时，部分历史自定义角色的 `FFORBIDSTATUS` 为单个空格 `' '` 而非 `'A'`，过滤有效权限头须写 `RTRIM(ISNULL(p.FFORBIDSTATUS, '')) <> 'B'`，切勿写 `p.FFORBIDSTATUS = 'A'` 以免漏算整角色权限（2026-11-12 实证）。
 - 陈秋伶 TK03772 当日只读 WebAPI 快照：6角色，按已读配置合并1373项操作/151对象；跟单对财务应收审核/反审核存在无规则放宽路径，OEM跟单授予生产订单审核，盘盈亏审核/反审核明确禁止。未做字段授权完整核查、官方用户权限报表或目标账号实操，不能视为完整运行验证。证据 `output/chenqiuling-permission-audit-2026-10-17.json`，原始回读 `output/chenqiuling-raw-live.json`；脚本 `scripts/scratch/2026-10/audit-chenqiuling-roles.js`。数量及角色必须复用前重查。
 
 ### OEM跟单权限分阶段整理（2026-10-17，历史方案已撤销）
@@ -626,6 +630,7 @@ WebAPI批量只读可直接查询SEC_FuncPermissionInfo的FItemID/FRoleId/FObjec
 - 只保存必要的角色、账号与状态证据，不导出完整用户 View（含敏感字段）。工具：`scripts/scratch/2026-10/check-unused-roles.js`；证据：`output/unused-roles-2026-10-17.json`。数据为当日快照，复用前实时重查；交叉核对不一致时须披露，不能宣称完全一致。
 - 空角色 View 可能返回 `RoleUser=[{Id:0,UserId_Id:0,UserId:null}]` 占位行（实测111、932563）；统计成员必须排除空用户及零内码，不能将占位行误判为分配不一致。本次133角色/112用户双侧核对后，71个无成员、62个有启用成员、0个仅禁用成员；另有2个不存在角色内码的22条残留关联，均未修改。
 - 第一批空壳角色删除实证（2026-10-17，用户明确授权）：WebAPI `SEC_User` 列表可用 `FUserID,FRoleId` 获取全部组织角色映射，并按 `FRoleId IN (...)` 查残留引用；本次删除144837/test、172537/1-NMXSZ1、172538/1-NMXSZ2、172539/1-NMXSZ3、172540/1-WMXSZ前，双侧成员均空、非预设、功能及字段权限头均空。默认dry-run后逐个Delete并逐个回查，最后全部非目标角色清单与575行用户角色映射均未变，角色总数133→128。脚本 `scripts/scratch/2026-10/delete-first-empty-roles.js`，证据 `output/delete-empty-roles-1792226812066/`。该WebAPI映射查询可用于发现已删除角色的残留关联；不能声称本次也清理了其他旧残留。
+- **有成员自定义角色删除与系统预设角色禁用降级（2026-11-12 实证）**：① 对仍有成员（含已禁用账号）的自定义角色（`FISDEFAULT='0'`），严禁直接调用 `Delete`，须先按同目录 [employee-master-query.md](employee-master-query.md) 的两步法清空全部成员、逐一重存受影响用户 `SEC_User`，并在 `T_SEC_ROLEUSER` 与 `T_SEC_USERROLEMAP` 均确认为 0 行后再调用 `SEC_KDRoles` `Delete`（`Delete` 移除 `T_SEC_ROLE` 后仍可能保留自身 `T_SEC_FUNCPERMISSION` / `T_SEC_FIELDPERMISSION` 记录，如实披露，不以 SQL 清理）；② 系统预设角色（`FISDEFAULT='1'`，如 `SCM02_SYS`）调用 `Delete` 会被金蝶拦截报错 `编码为“<编码>”的角色，预设角色，不允许删除！`，在清空成员后改调 `ExcuteOperation` `Forbid`（`api.forbidBill('SEC_KDRoles', roleId)`）将其禁用（`FFORBIDSTATUS='B'`），并独立双端复查。
 
 ### WebAPI 权限回读与实际生效边界（2026-10-21）
 
@@ -645,6 +650,7 @@ WebAPI批量只读可直接查询SEC_FuncPermissionInfo的FItemID/FRoleId/FObjec
 - **运维员A销售订单禁止测试（2026-10-21，配置已回读，运行时待用户测试）**：按用户具体要求新增专属角色 `LCG_DENY_SO_VIEW_V1`（934182，运维员A－禁止查看销售订单），仅配置 `SAL_SaleOrder/BOS_VIEW` 状态 `2`，权限头 `6ad855054e0934`；只分配给 TK2869 / 100081。原有 ALL（100079）与 administrator（6）角色保留，不移除管理员角色来制造测试效果。先 dry-run，再 `--apply`，新会话独立回读角色成员、用户角色和唯一禁止项；全用户角色映射差集仅新增该关联，原有销售订单权限未变。未执行页面“授权”，不得称已禁止成功；管理员角色是否影响运行时测试结果也尚未验证。脚本 `scripts/scratch/2026-10/configure-<USER>-deny-sales-order-view.js`；证据 `output/<USER>-deny-so-view-1792562436821/verified.json`。
 - **同一测试恢复有权（2026-10-21）**：用户要求“再去开启”，只将上述专属角色的 `BOS_VIEW` 从 `2` 改成 `0`，角色成员及其他权限模型字段回读未变，未执行正式授权，运行时待用户测试。首次仅传分录内码/状态并用 `NeedUpDateFields=['FEntityPermission.FPermissionStatus']`，Save 返回成功但回读仍为 `2`（没有实际变化）；查明后采用仓库既有写法，`NeedUpDateFields=[]`，同时传角色、权限项标识、原分录内码和原数据规则，回读才变成 `0`。不把首次成功响应当作改动完成，也不把该组合探测推广为所有表单的字段规则。脚本 `scripts/scratch/2026-10/enable-<USER>-sales-order-view.js`；成功证据 `output/<USER>-enable-so-view-1792562634593/verified.json`，首轮未变化证据 `output/<USER>-enable-so-view-1792562601620/after-investigation.json`。
 - **恢复后的用户实测（2026-10-21 14:06）**：用户反馈“还是看不了”；重新 WebAPI 查询，TK2869 仍绑定 ALL、administrator 和专属测试角色，测试角色启用、仅绑定100081，`SAL_SaleOrder/BOS_VIEW` 仍为 `0`。因此本次 API 配置改回有权未恢复用户实际访问，不能把回读成功称为恢复成功。按已接受的手工授权约定，交接用户进入“业务对象功能授权”，选择测试角色 `LCG_DENY_SO_VIEW_V1`，将销售订单查看设为有权并点击“授权”；操作后再回读并由本人重测。截图仅展示菜单搜索，具体点击错误未采集；尚不据此断定唯一根因或宣称手工步骤已完成。
+- **预设角色权限分录空规则值归一化（2026-11-11 `SCM01_SYS` / `BD_Supplier` 实证）**：系统预设角色（如 `SCM01_SYS` 采购员）在首次经 WebAPI `SEC_FuncPermissionInfo` Save 更新前，`View` 返回的空数据规则字段 `FDataRule` 为 `null`，而 Save 写入 `' '` 后回读会变为 `' '`（数据库与运行时均代表无数据规则）。在前后回读核对非目标字段未变时，应对 `FDataRule` 做 `String(x ?? '').trim()` 归一化比较，避免将 `null → ' '` 误判为数据规则漂移。
 - **移除再分配测试（2026-10-21 14:10）**：用户明确补充“刚才的添加角色禁用是生效的”，并要求移除后再分配同一角色。通过 `SEC_User` Save，以 `FOrgInfo/FRoleInfo` 保留非目标 `FDetailID`，`IsDeleteEntry=true`、`NeedUpDateFields=[]` 移除测试角色；从用户、角色及全用户角色映射分别回读确认仅减少100081/934182；随后 `SEC_KDRoles` Save（`FEntityUser=[{FUserId:{FUserID:100081}}]`、`NeedUpDateFields=[]`）重新分配，再三路核对原映射完整恢复，权限头仍仅 `BOS_VIEW=0`，原ALL与administrator角色保留。未手工授权；运行时恢复效果待用户验证，尚不能将重新分配确认为通用刷新办法。过程中角色侧空成员列表以及显式 `NeedUpDateFields=['FEntityUser']` 的尝试均返回成功却没有预期关联变化，已通过回读发现，不能作成功范例。脚本 `scripts/scratch/2026-10/reassign-<USER>-test-role.js`、`restore-<USER>-test-role.js`；证据 `output/<USER>-reassign-test-role-1792562980369/verified.json`。
 - **删除旧角色、同名重建测试（2026-10-21 14:15）**：用户明确要求删除上述角色后同名重建并重新分配。已移除100081/934182关联，标准 `SEC_KDRoles` Delete 删除旧角色934182；随后同名、同编码 `LCG_DENY_SO_VIEW_V1` 新建角色934183，设置唯一 `SAL_SaleOrder/BOS_VIEW=0`（新权限头 `6ad858954e0bd8`），仅分配TK2869，用户角色为6、100079、934183。非目标角色清单及全用户角色映射比对通过；未执行页面授权，运行时待用户实测。**未清理项**：旧权限头 `6ad855054e0934` 仍指向已删除角色934182；删除角色没有连带清理该头。单独标准 Delete `SEC_FuncPermissionInfo` 在此现场返回 `FForbidStatus =='A'` 未定义的校验表达式错误，未绕过校验或SQL写入，不宣称权限记录已完整删除。此遗留是已观测事实，不直接认定其影响运行时。脚本 `scripts/scratch/2026-10/recreate-<USER>-test-role.js`、`finish-recreate-<USER>-test-role.js`；证据 `output/<USER>-recreate-test-role-1792563304790/verified.json`；首次权限头删除失败发生于 `output/<USER>-recreate-test-role-1792563269288/` 后，未重复该失败请求。
 - **只修改现有角色禁止查看测试（2026-10-21 14:20）**：用户要求在现有934183角色上直接禁止，不再创建角色。实时读取该权限头时已变为64项（BOS_VIEW为0、其他63项保留；不推断这些新增项由谁写入）。仅更新原 `BOS_VIEW` 分录状态0→2，角色内码、成员关系和其他63项及模型字段全部回读未变。未重新创建/分配角色，未执行页面授权；运行时是否立即禁止待用户测试，不能以API回读替代实测结论。脚本 `scripts/scratch/2026-10/deny-existing-<USER>-sales-order-view.js`；证据 `output/<USER>-deny-existing-so-view-1792563645812/verified.json`。

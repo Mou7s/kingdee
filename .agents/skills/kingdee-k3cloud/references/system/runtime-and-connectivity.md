@@ -42,7 +42,9 @@ console.log(rows);
 ## 数据库连接失败与外网复测（2026-11-07）
 
 - 调查所需的数据库连接失败时，立即告知用户具体失败环节和对结论的影响，再继续检查现有外网配置；不要到最终报告才披露，也不要仅因内网失败就结束可继续的调查。
-- WebAPI 外网地址与 SQL Server 外网映射是不同服务。读取既有配置核实 SQL 主机和端口；当默认内网 `K3_DB_HOST`（`<K3_INTRA_HOST>`）在外网环境不可达时，可优先尝试外网备用地址 `<K3_ALT_HOST>`（SQL Server 端口 `1433`，WebAPI `http://<K3_ALT_HOST>/k3cloud`），但**不修改 `k3cloud.local.json` 的默认内网配置**（用户明确约定 `<K3_ALT_HOST>` 为外网备用地址）。
+- WebAPI 外网地址与 SQL Server 外网映射是不同服务。`<K3_INTRA_HOST>` 是金蝶内网服务器（同时承载 WebAPI `http://<K3_INTRA_HOST>/k3cloud` 与 SQL Server `<K3_INTRA_HOST>:1433`），而 `<K3_ALT_HOST>` 是仅在外网环境下使用的 VPN/备用地址。读取既有配置核实 SQL 主机和端口：
+  1. **内网优先与 `api.baseUrl` 一致性核对**：若 `K3CloudWebAPI.login()` 已命中内网地址 `http://<K3_INTRA_HOST>/k3cloud`，说明当前处于内网环境，SQL Server 必须直连内网 `<K3_INTRA_HOST>:1433`（对应 `K3_SQLCMD_HOST` 或默认内网 `K3_DB_HOST`）。即使本地 `k3cloud.local.json` 的 `K3_DB_HOST` 因上次外网排障被遗留为 `<K3_ALT_HOST>`，在内网看到 `<K3_ALT_HOST>:1433` 超时也应立即切换回内网 `<K3_INTRA_HOST>:1433`，**严禁在内网已连通 `<K3_INTRA_HOST>` 的情况下误报「外网路由未就绪」**（2026-11-10 用户纠偏）。
+  2. **外网回退且不改默认配置**：当默认内网 `<K3_INTRA_HOST>` 在外网环境不可达时，才尝试外网备用地址 `<K3_ALT_HOST>`（SQL Server 端口 `1433`，WebAPI `http://<K3_ALT_HOST>/k3cloud`），但**不修改 `k3cloud.local.json` 的默认内网配置**（用户明确约定 `<K3_ALT_HOST>` 为外网备用地址）。
 - 注意本机开启 `Meta`（Clash TUN）虚拟网卡时，其会对不可达的局域网 IP（如 `<K3_INTRA_HOST>:80` / `1433`）秒回本地假 TCP 握手，之后在 HTTP 请求或 TDS 握手阶段报 `ECONNRESET` / `ETIMEOUT`。TCP 建连成功只证明传输层接受了连接；必须完成 SQL 登录并执行 `SELECT DB_NAME(),GETDATE()` 及一条真实只读业务查询后，才能称数据库已连通。记录尝试时间、端点、客户端、错误码与是否执行查询，不记录密码。
 - 2026-11-07 实测验证：外网环境默认 `<K3_INTRA_HOST>:1433` 与 `<K3_EXTRA_HOST>:1433` 均不可达；用户提供的外网备用地址 `<K3_ALT_HOST>:1433` 在 VPN/内网路由未就绪时会报 `ESOCKET / ETIMEOUT`（见 `db-10-2-3-30-connection.json`、`direct-route-db-connection.json`），待网络路由就绪后通过 `<K3_ALT_HOST>:1433`（`encrypt: false, trustServerCertificate: true`）成功登录 `<SQL_SERVER_HOST>` / `<K3_MAIN_DB>` 并完成 `SELECT DB_NAME(),GETDATE()` 与 `T_CB_ACCTGPERFORMANCE` 只读查询，`http://<K3_ALT_HOST>/k3cloud` WebAPI 同样验证连通。注意 `<K3_ALT_HOST>` 仅作为外网备用候选端点，不改为全局默认值；复用前仍须先实测连通性。
 

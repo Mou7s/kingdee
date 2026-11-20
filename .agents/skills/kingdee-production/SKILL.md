@@ -40,6 +40,7 @@ description: >-
 - `references/production/deleted-mo-upstream-trace.md` — 已删生产订单的上游销售订单溯源
 - `references/production/mo-close-date-validation.md` — 生产订单结案日期校验
 - `references/production/mo-fragmentation-diagnosis.md` — 生产订单碎片化诊断
+- `references/production/mo-sales-note-mismatch-diagnosis.md` — 生产订单「销售订单备注」少字或与上游不一致排查
 - `references/production/mo-status-machine-and-reverse-audit.md` — 生产订单分录业务状态机、反执行/反审核受阻排查与下游受托收料联动核对
 - `references/production/operation-control-code-mismatch.md` — 工序计划汇报控制码与工艺路线不一致
 - `references/production/operation-plan-machine-query.md` — 工序计划机台号筛查

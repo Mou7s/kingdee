@@ -62,6 +62,7 @@
 | `Qty` | 订购数量 | |
 | `TaxPrice` | 含税单价 | |
 | `DeliveryDate` | 要货/交货日期 | |
+| `FEntryNote` | 备注 | View 键 `Note`，物理列 `T_SAL_ORDERENTRY.FNOTE`（`nvarchar(255)`）；标准元数据在已审核状态下 `IsControl=False` 允许直接修改保存（2026-11-16 验证） |
 
 ---
 
@@ -95,6 +96,9 @@
 | `FQty` | 计划生产数量 | |
 | `FMaterialId.FNumber` | 生产产品编码 | |
 | `FMaterialId.FName` | 生产产品名称 | |
+| `FRoutingId` | 工艺路线 | 分录字段（`FTREEENTITY`）；由扩展 `e06699e2-4cea-4d30-8b87-1d8c3be4f69d` 从 `FBomId.F_UFDefaultRoute` 带出；从物料 `FMaterialId.FDefaultRouting` 带出的标准规则 `ca0f76ad-9767-4396-bd88-a8f0f180eaa5` 已停用（`IsEnabled=False`，2026-11-16 验证） |
+| `F_UNW_Base_pzg` | 文件编号 | 分录扩展字段（`FTREEENTITY`，关联 `BAS_PreBaseDataOne`）；由扩展 `e06699e2-4cea-4d30-8b87-1d8c3be4f69d` 从 `FBomId.F_UNW_Base_uky` 带出（2026-11-16 验证） |
+| `F_UNW_Text_qtr1` | 销售订单备注 | 分录扩展字段（`FTREEENTITY`，`T_PRD_MOENTRY.F_UNW_TEXT_QTR1`，`nvarchar(2000)` / `Editlen=2000`）；由 `SAL_SaleOrder` 转换规则 `88af8564-9c86-4698-b853-85dcd78f3745`（基于 `PRD_SALEORDER2MO`）从 `FEntryNote` 建单时拷贝带入，无后续跨单同步反写规则（2026-11-16 验证） |
 
 ---
 
@@ -189,6 +193,21 @@
 | `FBillTypeID` | 单据类型 ID | |
 | `FCreatorId` | 创建人 ID | |
 | `FDescription` | 备注 | |
+
+---
+
+### 工序计划 (SFC_OperationPlanning)
+* **FormId**: `SFC_OperationPlanning`
+* **常用查询字段（表头）**：
+
+| 字段 Key | 中文名 | 备注 |
+| :--- | :--- | :--- |
+| `FID` | 单据内码 | |
+| `FBillNo` | 工序计划号 | 如 `TX1100295` |
+| `FMONumber` | 生产订单编号 | 关联 `PRD_MO.FBillNo` |
+| `FMOEntryId` | 生产订单分录内码 | 关联 `T_PRD_MOENTRY.FENTRYID` |
+| `FDescription` | 备注 | 多语言表 `T_SFC_OPERPLANNING_L.FDESCRIPTION`（`nvarchar(255)`）；继承 `MFG_BILLTEMPLATE_ENTRY` 在已审核下 `IsControl=False` 可直接编辑；转换规则 `3a8ca3aa-ea36-4d34-a706-30aa5f8ca36b` 由 `PRD_MO.F_UNW_Text_qtr1` 映射带入（2026-11-16 验证） |
+| `F_UNW_Text_qtr` | 销售备注 | 「个性化」页签及流程卡套打模板绑定字段，物理列 `T_SFC_OPERPLANNING.F_UNW_TEXT_QTR` 原为 `nvarchar(250)`，已于 2026-11-16 扩宽至 `nvarchar(2000) NOT NULL`（与元数据 `Editlen=2000` 一致），且在 `B/C` 单据状态下 `IsControl=False`；由 `PRD_MO.F_UNW_Text_qtr1` 同步映射带入（2026-11-16 验证） |
 
 ---
 

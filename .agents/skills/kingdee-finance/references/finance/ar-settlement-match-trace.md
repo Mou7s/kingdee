@@ -12,6 +12,8 @@
 - 逾期应收与待审核财务单交叉核对（2026-10-23）
 - 暂估应收选单缺失与反审核前的下游核对（2026-10-24）
 - 财务应收保存超额：当前草稿与失败页面分开核对（2026-10-26）
+- 跨期误推暂估应收的核查与对冲销账路径（2026-11-10）
+- 款到发货客户未结算应收的放货追责与预收挪用溯源（2026-11-11）
 
 ## 草稿应收按 Excel 改价（2026-10-26 验证）
 
@@ -114,3 +116,31 @@
 - 海德 AR00044026（177766/494762），2026-09-28 退货 TKMP3401B，-30K/-1815元。首次读取累计数量为0，后续读取 BUYIVBASICQTY/BUYIVQTY/FSALFINBASEQTY 均-30；AR00045320（180493）随后已为草稿A，共346行，第293行508925唯一引用该源分录，数量-30K，Link AP_HookRecToFinRec，整单未发现重复源分录引用。9月以来另外两张海德财务应收也未发现引用此源分录。
 - 截图报第347行，而已保存草稿在第293行已有该笔，支持「失败页面再次选入」的推断，但未读取当时未保存页面，不能确认历史重复行或宣称修复成功。当前草稿保存存在不等于审核成功，不为调查重放Save/Submit/Audit。
 - 证据：output/hd-ar-177766.json、hd-ar-180493.json、hd-ar-177702.json、hd-ar-179326.json；本次仅WebAPI只读。易变状态复用前重新查询。
+
+## 跨期误推暂估应收的核查与对冲销账路径（2026-11-10）
+
+- **适用场景**：历史期间（已关账）有一笔暂估应收单（`FSetAccountType='2'`）因误操作直接从销售订单下推（`FSOURCETYPE='SAL_SaleOrder'`，转换规则 `AR_SailOrderToReceivableMap`），而后正常出库单又再次下推生成了正确的暂估应收并已完成对账开票，导致错误暂估单一直挂在「未对账数据（`FOPENSTATUS='A'`、未开票核销数≠0）」列表中。
+- **先核查上下游与关账状态**：
+  1. `viewBill("AR_receivable", fid)` 检查误推暂估单的 `FSetAccountType`（确认是否类型 `2`）、`FOPENSTATUS`/`FWRITTENOFFSTATUS`、分录 `FRECEIVEAMOUNT`/`FNORECEIVEAMOUNT`、`FOPENQTY`/`BUYIVQTY`/`FSALFINBASEQTY` 是否全为 `0`，以及 `FSOURCEBILLNO` 是否有下游财务应收单或总账凭证引用（类型 `2` 暂估本身不生成总账凭证）；数据库侧可同步核对 `T_AR_RECEIVABLEENTRY_LK`、`T_AR_RECMACTHLOGENTRY`、`T_AR_BILLINGMATCHLOGENTRY` 确认 0 行下游与 0 行核销记录。
+  2. 检查源销售订单分录的 `StockBaseARJoinQty`/`SalBaseARJoinQty`（误推+出库正常推会使累计应收关联数量翻倍，如订单 5K 显示已关联 10K），并核实正常销售出库单→正常暂估应收→财务应收→自动冲回单（`-000001`）及收款单链路是否已完整闭环。
+- **两种标准销账方案（不动历史关账期）**：
+  - **方案 A（本账套财务已有先例：当期正负暂估合并下推 0 金额财务应收对冲）**：
+    - 先例与本次执行实证（2025-10-16 历史先例 `AR00001701` + `AR00023001` → `AR00023002`；2026-11-10 执行 `AR00040826` + `AR00045931` → `AR00045932`）：
+      1. 先查询 `T_AP_CLOSEPROFILE`（`FCATEGORY='AR'`）确认应收模块最新关账日期，在当前开放期间手工新增一张**同客户、同收款条件、同销售部门/销售组/销售员、同物料、同单价、相反数量（负数）**的暂估应收单（`FSetAccountType='2'`，如 `AR00045931`，数量 `-5`、含税单价 `155`、价税合计 `-775`）并提交审核；
+      2. 调用 `pushBill("AR_receivable", "AR_receivable", [negFid, posFid], { EntryIds: "${negEntryId},${posEntryId}", RuleId: "AP_HookRecToFinRec", IsEnableDefaultRule: "false", IsDraftWhenSaveFail: "true" })` 将两张正负暂估单合并下推为 1 张**2条分录（一正一负）、整单价税合计为 `0` 元**的财务应收单（`FSetAccountType='3'`，如 `AR00045932`，表头 `FALLAMOUNTFOR=0`）；注意：保存财务应收草稿时上游暂估单的 `FNOINVOICEQTY`（未开票核销数）仅更新 `FBUYIVQTY` 而不会清零，必须补齐本账套类型 3 财务应收必填二开字段 `F_UNW_Text_apv='无票'`（发票号）与 `F_KP_Date`（开票日期，View 属性名为 `F_UNW_Date_qtr`）；
+      3. 审核该 `0` 元财务应收单后，系统自动对两张暂估单生成反向冲回单（`AR00040826-000001` 与 `AR00045931-000001`，`FByVerify='2'`）并完成开票核销（`T_AR_RECMACTHLOG` 产生 `FMATCHMETHODID=71`、`FMATCHFIELDNAME='FMatchQty'` 自动核销记录）：原暂估单的 `FOPENSTATUS` 与 `FWRITTENOFFSTATUS` 均变为 `C`（已全部核销/开票）、`FOPENQTY=5`、`FNOINVOICEQTY=0`（未开票核销数清零），彻底从「未对账数据」列表中消失；同时因财务应收单整单金额为 `0`，**不会多计当期主营业务收入或应收账款，也无需生成总账凭证**。
+  - **方案 B（彻底删除原误推单）**：因原单业务日期在已关账历史期间（如 7 月），直接反审核会受应收模块已结账拦截；若确需物理删除原单，必须将应收系统反结账回对应历史月份才能反审核删除（仅删除类型 `2` 无凭证暂估单本身不影响总账科目余额，同时可使销售订单累计关联应收数量恢复正常，但跨多月反结账操作繁琐，一般优先推荐方案 A）。
+- **防呆阻断（禁止销售订单直接下推应收单）**：在 BOS 单据转换（`T_META_CONVERTRULE`）中将 `SAL_SaleOrder` → `AR_receivable` 的 4 条预置转换规则（`AR_SailOrderToReceivableMap`、`AR_SailOrderToReceivableZT`、`AR_SailOrderToMinusReceivableMap`、`AR_InitSailOrderToInitReceivableMap`）逐一点击「扩展」（生成 `FDEVTYPE=2` 扩展行覆盖标准行 `FDEVTYPE=0`）并取消勾选「启动」保存（`FSTATUS='0'`），即可仅关闭销售订单直接下推应收单，而不影响 `SAL_OUTSTOCK` → `AR_receivable`（`AR_OutStockToReceivableMap`）正常下推。
+- **安全边界**：硬规则禁止提交/审核仅针对 `AP_PAYABLE`（财务应付单）；对 `AR_receivable` 执行正负对冲写入仍须先取得用户明确方案选择与授权，脚本默认 dry-run、显式 `--apply` 执行并完成 WebAPI 与数据库双重独立复核。证据：`output/ar40826-investigation-20261110.json`、`output/ar40826-offset-result-20261110.json`。
+
+## 款到发货客户未结算应收的放货追责与预收挪用溯源（2026-11-11）
+
+- **典型误判风险**：收款条件为 `001 款到发货` 的客户在财务应收单列表出现若干行「未结算金额 > 0」，用户追问「这两笔货是谁放的」时，**绝不能只查表面这两张出库单/发货通知单的制单与审核人就下结论**。本账套财务做跨期收款核销时，存在将新销售订单已全额预收的 `SKD` 收款单通过手工核销（`FMATCHMETHODID=60`，生成 `YSHXD` 预收核销单）挪去冲抵历史旧财务应收单缺口（“拆新补旧”）的情况，导致新订单后续正常发货转入财务应收后反而显示未收款。
+- **固定双层核查步骤（只读）**：
+  1. **表层单据链与订单预收核实**：
+     - 顺着财务应收分录 `FSOURCEBILLNO`（暂估应收）→ 暂估分录 `FSOURCEBILLNO`（`SAL_OUTSTOCK`）→ `T_SAL_OUTSTOCKENTRY_R.FSRCBILLNO`（`SAL_DeliveryNotice`）与 `FSOORDERNO`（`SAL_SaleOrder`），联合 `T_BAS_OPERATELOG(BK)` 查清表层订单、通知单、出库单、应收单的制单人、审核人及客户档案默认业务员/跟单员；
+     - **必查订单级收款绑定**：查 `T_AR_RECEIVEBILL r JOIN T_AR_RECEIVEBILLENTRY e ON e.FID=r.FID`（按 `r.FCONTACTUNIT` + `e.FSALEORDERNO`），核实该销售订单在发货前是否已收到全款。
+  2. **底层预收挪用链与真实缺口源头定位**：
+     - 若表层订单在发货前已收齐预收款，继续查该 `SKD` 收款单在 `T_AR_RECMACTHLOG` / `T_AR_RECMACTHLOGENTRY` 的全部核销去向（注意 join 条件 `h.FID = e.FID`；核销目标 `AR` 单上的 `FSRCSEQ` 对应收款计划表 `T_AR_RECEIVABLEPLAN.FSEQ`，可由 `T_AR_RECEIVABLEPLAN.FORDERBILLNO` 直接读出被填补的旧销售订单号），逐跳向前追溯多米诺骨牌链，直到找到最早一张没有对应收款支撑的订单/出库单；
+     - **全客户总账交叉闭合校验**：汇总该客户全历史已审核出库净额（`T_SAL_OUTSTOCKENTRY_F.FALLAMOUNT` 减 `T_SAL_RETURNSTOCKENTRY_F.FALLAMOUNT`）、未转财务应收的开放暂估额、期初特殊核销额（`FMATCHMETHODID=30`）与全部已审核 `T_AR_RECEIVEBILL` 实收总额，并按销售订单逐单比对 `净出库额 - 绑定收款额`（同时把 `FSALEORDERNO` 为空的收款单按核销日志或金额日期还原配对），确保全账套总差额与当前列表未结算总额分毫不差，锁定真正无款/少款放货的历史源头单据与经手人。
+- **输出规范**：汇报时分清两层事实——① 截图所示两笔单据本身的发货经手链及「发货前其实已全额预收款」的证据；② 预收款被哪笔手工核销挪补了哪张旧单，以及真正造成资金缺口的历史无款/少款放货源头单号、时间与经手人。

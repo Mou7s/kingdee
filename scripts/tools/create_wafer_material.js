@@ -12,9 +12,9 @@
 //       --spec "4.100*2.628(含划片道)" --group 102012 --stock CTK01 --bin 100001 \
 //       --category CHLB04_SYS --erp 3 --sub-contract --main-prd [--apply]
 //
-// 仓位与批号规则随族不同，必须照同族最近完整对：
-//   --bin 100015 / 100001 + 默认 PHBM004      → SJS40 系（2026-04）
-//   --bin 0（不传仓位）+ --no-batch-rule      → APMT/CRMTU/PD620 等族（2026-08 之后）
+// 2026-11-17 起统一采用模板 B（芯片仓位 + PHBM004 + 批号影响成本 true）：
+//   默认仓位：102011 -> 100015（芯片仓），102012 -> 100001（芯片仓）；可用 --bin 显式覆盖
+//   批号规则：默认 PHBM004；批号(04)影响成本：默认 true（可用 --no-batch-affect-cost 关闭）
 
 import { K3CloudWebAPI } from "../../lib/k3/index.js";
 
@@ -24,6 +24,7 @@ const get = (f) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 const apply = args.includes("--apply");
+const noBatchAffectCost = args.includes("--no-batch-affect-cost");
 
 const number = get("--number");
 const name = get("--name");
@@ -33,9 +34,11 @@ const unit = get("--unit") ?? "K";
 const category = get("--category") ?? "CHLB01_SYS"; // 存货类别：原材料/芯片
 const erp = get("--erp") ?? "1"; // ERP 分类：1=外购
 const stock = get("--stock");
-// 仓位：>0 才写 FStockPlaceId/FPickBinId；`--bin 0`（或同族样板仓位为 0 时）一律不传，
-// 因为部分客供晶圆族（APMT/CRMTU 等）尽管仓库开了仓位管理，物料默认仓位仍留空(0)。
-const binRaw = get("--bin");
+// 仓位：2026-11-17 起统一模板 B，未传 --bin 时按分组默认 102011 -> 100015、102012 -> 100001；
+// 仍保留显式 --bin 0 覆盖（此时不传 FStockPlaceId/FPickBinId）。
+const binArg = get("--bin");
+const defaultBin = group === "102012" ? "100001" : group === "102011" ? "100015" : undefined;
+const binRaw = binArg ?? defaultBin;
 const bin = binRaw !== undefined && Number(binRaw) > 0 ? Number(binRaw) : undefined;
 const pickStock = get("--pick-stock") ?? stock;
 const pickBinRaw = get("--pick-bin") ?? binRaw;
@@ -60,10 +63,10 @@ if (!["102011", "102012"].includes(group)) {
   console.error(`分组 ${group} 不在客供晶圆对口径内（应为 102011 或 102012），如确需请改脚本；终止。`);
   process.exit(1);
 }
-if (bin === undefined && !args.includes("--bin")) {
-  console.log("提示: 未传 --bin，默认仓位/领料仓位留空(0)，与近期 APMT/CRMTU 等族口径一致。");
+if (binArg === undefined && defaultBin !== undefined) {
+  console.log(`提示: 未传 --bin，按模板 B 默认写入分组 ${group} 芯片仓位 ${defaultBin}（可用 --bin 覆盖）。`);
 }
-if (binRaw !== undefined && bin === undefined) console.log(`提示: --bin ${binRaw} 非正数，按「不写仓位（留空 0）」处理。`);
+if (binArg !== undefined && bin === undefined) console.log(`提示: --bin ${binRaw} 非正数，按「不写仓位（留空 0）」处理。`);
 
 console.log("=== 客供晶圆建料参数 ===");
 console.log(`编码: ${number}`);
@@ -73,7 +76,7 @@ console.log(`分组: ${group}  存货类别: ${category}  ERP: ${erp}  单位: $
 console.log(`购/存/销/产/委外/主产品: 是/是/是/否/${isSubContract ? "是" : "否"}/${isMainPrd ? "是" : "否"}`);
 console.log(`批号: 是  规则: ${noBatchRule ? "（留空）" : batchRule}`);
 console.log(`默认仓: ${stock} 仓位: ${bin ?? "（留空0，不传）"}   领料仓: ${pickStock} 仓位: ${pickBinId ?? "（留空0，不传）"}`);
-console.log(`计划策略: ${planStrategy}  EOQ: ${eoq}  完工超收/短收: ${over}/${short}  税: ${taxRate}/${taxType}`);
+console.log(`批号影响成本(04): ${!noBatchAffectCost}  计划策略: ${planStrategy}  EOQ: ${eoq}  完工超收/短收: ${over}/${short}  税: ${taxRate}/${taxType}`);
 console.log(apply ? "模式: APPLY（真实写入）" : "模式: DRY-RUN（仅预览）");
 
 const api = new K3CloudWebAPI();
@@ -176,6 +179,13 @@ const model = {
     FStandHourUnitId: "3600",
     FBackFlushType: "1",
   },
+  FEntityInvPty: [
+    { FInvPtyId: { FNumber: "01" }, FIsEnable: true, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "02" }, FIsEnable: bin !== undefined, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "03" }, FIsEnable: false, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+    { FInvPtyId: { FNumber: "04" }, FIsEnable: true, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: !noBatchAffectCost },
+    { FInvPtyId: { FNumber: "06" }, FIsEnable: false, FIsAffectPrice: false, FIsAffectPlan: false, FIsAffectCost: false },
+  ],
 };
 
 console.log("\n正在保存...");
@@ -206,11 +216,12 @@ const v = await api.post("DynamicFormService.View", { formid: "BD_MATERIAL", dat
 const d = v?.Result?.Result;
 if (!d) { console.error("回查失败：View 无数据"); process.exit(1); }
 const b = d.MaterialBase?.[0] ?? {}, s = d.MaterialStock?.[0] ?? {}, p = d.MaterialProduce?.[0] ?? {}, pl = d.MaterialPlan?.[0] ?? {};
+const lotPty = d.MaterialInvPty?.find((x) => x.InvPtyId?.Number === "04");
 console.log("=== 执行后复查（View） ===");
 console.log(`编码/名称/规格: ${d.Number} / ${d.Name?.find((x) => x.Key === 2052)?.Value} / ${d.Specification?.find((x) => x.Key === 2052)?.Value}`);
 console.log(`状态: ${d.DocumentStatus}  禁用: ${d.ForbidStatus}  分组: ${d.MaterialGroup?.Number}`);
 console.log(`ERP/类别: ${b.ErpClsID} / ${b.CategoryID?.Number}  单位: ${b.BaseUnitId?.Number}`);
 console.log(`购/存/销/产/资产/委外: ${b.IsPurchase}/${b.IsInventory}/${b.IsSale}/${b.IsProduce}/${b.IsAsset}/${b.IsSubContract}`);
-console.log(`批号: ${s.IsBatchManage} 规则: ${s.BatchRuleID?.Number} 仓: ${s.StockId?.Number} 仓位Id: ${s.StockPlaceId_Id}`);
+console.log(`批号: ${s.IsBatchManage} 规则: ${s.BatchRuleID?.Number} 批号影响成本: ${lotPty?.IsAffectCost} 仓: ${s.StockId?.Number} 仓位Id: ${s.StockPlaceId_Id}`);
 console.log(`领料仓: ${p.PickStockId?.Number} 领料仓位Id: ${p.PickBinId_Id} 超短收: ${p.FinishReceiptOverRate}/${p.FinishReceiptShortRate} 主产品: ${p.IsMainPrd}`);
 console.log(`计划策略: ${pl.PlanningStrategy}  EOQ: ${pl.EOQ}  税率: ${b.TaxRateId?.Number}`);

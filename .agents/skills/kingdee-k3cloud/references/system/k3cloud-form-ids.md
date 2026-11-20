@@ -22,9 +22,14 @@
 | `BD_CUSTOMER` | 客户 | |
 | `BD_STOCK` | 仓库 | |
 | `BD_Empinfo` | 员工 | 2026-09 WebAPI 实测；主表 `T_HR_EMPINFO`，部门经 `FStaffId`→`T_BD_STAFF.FDEPTID` |
+| `HR_ORG_HRPOST` | 岗位信息 | 2026-11-09 `QueryBusinessInfo`、Save/Submit/Audit 实测：主表 `T_ORG_POST`（主键 `FPOSTID`），子头 `FHRPostSubHead`（`T_ORG_HRPOST`） |
+| `BD_Operator` | 业务员 | 2026-11-09 `QueryBusinessInfo`、View/Save 实测：主表 `T_BD_OPERATOR`（表头主键字段键名 **`FOperatorId`**，其中销售员 `XSY` 为 `100003`），分录 `FEntity`（`T_BD_OPERATORENTRY`），业务组子单据体 `FBD_OPERATORDETAILS`（`T_BD_OPERATORDETAILS`，主键 `FSUBENTRYID`）；追加分录时既有分录仅传 `{FEntryID}` |
+| `BD_SUPPLIER` | 供应商 | 大小写不敏感（`BD_Supplier` 同对象）；联系人页签操作受该对象自身 `BD_New_Contact` 等独立权限项控制 |
+| `BD_CommonContact` | 联系人 | 2026-11-11 `QueryBusinessInfo`、`ExecuteBillQuery` 及数据库实测：主表 `T_BD_COMMONCONTACT`（主键 `FCONTACTID`，按 `FCompanyType`/`FCompany` 挂靠 `BD_Supplier` 等往来单位），供应商页签联系人同步写入 `t_BD_SupplierContact` |
 | `BD_MATERIALSAFESTOCK` | 物料安全库存 | |
 | `BD_STOCKMAXMIN` | 仓库最大最小库存 | |
 | `BD_STOCKMAXMINSTOCK` | 仓库最大最小库存明细 | |
+| `ADKB_Equipment` | 设备台账（自定义基础资料） | 2026-11-20 BOSIDE 与 WebAPI 实测；模型类型 `400`，主表 `T_ADKB_Equipment`，受基础资料组织控制策略与权限对象管控 |
 
 ## 生产管理
 
@@ -120,10 +125,14 @@
 | `BOS_OperateLog` | 操作日志 | |
 | `BOS_PermissionItem` | 权限项 | |
 | `SEC_FuncPermissionInfo` | 功能权限信息 | 2026-10-15实时元数据与Save/View/数据库验证：角色、对象、FEntityPermission；模型类型100/400/500已成功补权，900/800/220不在当前对象字段可选范围，不能据此宣称全部类型可保存 |
-| `SEC_KDRoles` | 角色 | 2026-10-15元数据、Save/View与SQL回查：主键FRoleID，FEntityUser/FEntityID维护用户关联；只移除单人分配可保留其他用户原分录主键保存，不删除角色定义 |
-| `ENG_BOM` | BOM | |
+| `SEC_KDRoles` | 角色 | 2026-10-15元数据、Save/View与SQL回查：主键FRoleID，FEntityUser/FEntityID维护用户关联；只移除单人分配可保留其他用户原分录主键保存，不删除角色定义。2026-11-09实证：追加新用户时保留的旧分录须同时带 `FEntityID` 与 `FUserId:{FUserID}`，否则新关联不落库 |
+| `SEC_User` | 用户 | 2026-09/2026-11实测：主表 `T_SEC_USER`，主键 `FUserID`，禁用/反禁用操作为 `Disable`/`Enable`；新建时嵌套角色分录不自动落库，须经 `SEC_KDRoles` 分配 |
+| `SEC_ResetPassword` | 重置用户密码 | 2026-11-09实测：主表 `T_SEC_USER`，主键 `FUserID`；Save模型 `{FUserID,FNewPassword,FConfirmPassword,FMemo:<Salt>}` |
+| `ENG_BOM` | BOM | 分组字段 `FGROUP` 可经 `DynamicFormService.QueryGroupInfo` 查询与 `GroupSave` 新建（2026-11-10 实测） |
+| `ENG_Route` | 工艺路线 | 2026-11-10 `QueryBusinessInfo`、`View`、`Save/Submit/Audit` 实测：主表 `T_ENG_ROUTE`（`FID,FNumber,FName,FRouteGroupId,FProDepartmentId,FUnitID`），序列单据体 `FEntity`（`RouteOperSeq` / `T_ENG_ROUTEOPERSEQ`），工序子单据体 `FSubEntity`（`RouteOperDetail` / `T_ENG_ROUTEOPERDETAIL`） |
 | `ENG_Substitution` | 替代料 | |
 | `BAS_WARNSOLUTION` | 预警方案/监控方案 | 2026-10 实测：主表 `T_BAS_WARNSOLUTION`，操作启用 `Enable`、停用 `Disable`，受控字段 `FRun`（1=运行，0=停用） |
+| `SEC_SimplePassport` | 第三方系统登录授权（WebAPI AppId/密钥配置） | 2026-11-09 `QueryBusinessInfo`、`ExecuteBillQuery`、`Disable` 及数据库实测：主表 `T_SEC_SIMPLEPASSPORT`（`FID,FAppId,FAppName,FAppSecret,FForbidStatus,FRequireWhiteList,FWhiteList,FEnableAllUser`），用户子表 `T_SEC_SIMPLEPASSPORTUSER`（`FEntity`：`FUserId`）；不支持 `View` 接口；`Disable`/`Enable`/`Save`/`Delete` 写操作受服务端硬性守卫限制，非 `Administrator`（`FUSERID=16394`）调用直接报「只有系统管理员（Administrator）才能使用该功能」 |
 
 
 ### 2026-10-30 生产下游查证补充

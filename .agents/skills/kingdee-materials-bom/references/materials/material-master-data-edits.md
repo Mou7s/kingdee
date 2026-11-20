@@ -60,3 +60,12 @@
 - 首次 Save 更新清单 `['FNumber','FMaterialGroup','FCategoryID']`，类别位于 `SubHeadEntity` 且已带 `FEntryId`，返回成功但仅编码/分组生效，类别仍旧值。此时停止提交审核，先实时 View 确认 D 状态与实际字段。随后最小 Save `{NeedUpDateFields:[],IsDeleteEntry:false,Model:{FMATERIALID:<当前内码>,SubHeadEntity:{FEntryId:<当前基本页签内码>,FCategoryID:{FNumber:'CHLB08_SYS'}}}}` 生效。仅为该报文组合实证，不推断其他更新清单写法都不可用。
 - 类别回查符合后 Submit→Audit，重新登录以 View 与列表独立复核编码/分组/类别、C/A、名称/规格、ERP分类、采购/库存/销售/生产开关、基本/库存单位及默认仓库。此次保留 CTK03，用户没有授权改仓库；采购单 `TK20261031016` 查询显示新编码，仍 C、数量1。
 - 证据：`scripts/scratch/2026-11/move-hose.mjs`、`hose-category.mjs`；`output/hose-plan-20261102.json`、`hose-mid-20261102.json`、`hose-result-20261102.json`。脚本默认 dry-run，固定对象仅为本次授权；复用前重查。
+
+## 代工成品封装纠错：规格、分组与编码同内码联动（2026-11-11）
+
+- 用户凭生产订单截图要求将封装由 `SOT23-3L` 改为 `SOT-23` 时，写入前须同时向用户澄清两项口径：
+  1. **规格首段写法**：厂内自制/代工 SOT-23 常规带 `(27R)`（如 `SOT-23(27R)/3K盘/...`）还是按字面写 `SOT-23`；
+  2. **分组与编码是否同步迁移**：仅改 `FSpecification`，还是同步迁入对应封装组（如 `BM007 SOT23-3L` → `BM027 SOT-23(27R)`）并按目标段顺延编码。
+- 实证（2026-11-11）：用户确认采用 `SOT-23(27R)` 并同步迁组改码。先全量核对 `NBM027%` 4 位流水最大值与候选号零占用，再对照 `BM007` 与 `BM027` 样板确认存货类别（`CHLB05_SYS`）、ERP 分类（`2`）及默认仓/领料仓位（`CTK11 / 100048`）一致。
+- 按同一物料内码执行 `UnAudit(C→D)` → 最小 `Save`（`NeedUpDateFields: ['FNumber', 'FMaterialGroup', 'FSpecification']`）→ `D` 状态中间态 `View` 核对目标值及 22 项非目标属性（类别、仓库仓位、批号规则、超短收率等）零漂移 → `Submit` → `Audit`。
+- 重新登录双通道回查：`934544`（`NBM0070070` → `NBM0270078`）与 `934545`（`NBM0070071` → `NBM0270079`）均恢复 `C/A`；关联已审核销售订单 `XSDD037251/252`、草稿生产订单 `MO261109018/019` 及草稿用料清单 `PPBOM00181725/26` 均按内码自动同步显示新编码与新规格，单据状态与数量未变。证据：`scripts/scratch/2026-11/migrate-mo-sot23-bm027.js`、`output/bm027-sot23-migrate-20261111.json`。

@@ -41,6 +41,7 @@ description: >-
 - `references/procurement/entrusted-vs-subcontract.md` — 受托vs委外vs采购三向区分
 - `references/procurement/oem-receive-instock-return.md` — 受托加工材料 收料/入库/退料
 - `references/procurement/purchase-order-delete-change-lock.md` — 采购订单删除链与变更锁死
+- `references/procurement/purchase-order-instock-before-ap.md` — 标准采购订单「先入库再下推应付」的流程与转换规则卡控核查
 - `references/procurement/purchase-prepay-push.md` — 采购订单下推付款申请预付失败排查
 - `references/procurement/purchase-vs-subcontract-diagnosis.md` — 采购vs委外诊断，以及标准/费用/资产采购订单链路与物料属性及存货类别对应规范
 - `references/procurement/subcontract-order-delete-chain.md` — 委外订单全链路逆向删除与死锁解除

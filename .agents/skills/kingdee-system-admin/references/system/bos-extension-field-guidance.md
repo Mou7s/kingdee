@@ -13,6 +13,12 @@
 - 如何确定用户截图里的某一列是哪个字段（界面列 ↔ 字段标识）
 
 
+- 生产订单自定义字段发现（2026-10-10）
+- 科目（`BD_Account`）审核服务插件：新增 `5101.*` 自动同步至费用引入方案（2026-11-10 端到端实测）
+- 销售订单明细备注跨单同步服务插件（`SAL_SaleOrder` → `PRD_MO` / `SFC_OperationPlanning`，2026-11-17 实测）
+- 自定义基础资料/单据 BOSIDE 运维与 WebAPI 协作要点（2026-11-20 实测）
+
+
 ## 业务目标（2026-09-04）
 - `SAL_SaleOrder` 销售订单明细加一列选项：`1 CTK标 / 2 非CTK标`（如下拉列表）。
 - 位置：扩展对象树 `销售订单 > 订单明细`，即 `FSaleOrderEntry / T_SAL_ORDERENTRY`，与已有 `OEM印字、生产回复交期、海关编码、芯片批号` 同一实体。
@@ -146,3 +152,39 @@ FROM T_META_OBJECTTYPE WHERE FID='SAL_OUTSTOCK' OR FBASEOBJECTID='SAL_OUTSTOCK' 
 反写须查 `T_BF_WRITEBACKRULE.FKERNELXML` 与 `T_BF_WRITEBACKRULECUST`，不能用 `T_META_WRITEBACKFIELD` 无结果断言没有规则。实时规则 `014daa81-a65c-4be2-bacd-e42bd0ad4181`「生产订单反写销售订单-生产回复交期」：SourceFormId=SAL_SaleOrder、TargetFormId=PRD_MO（上下游术语，不等于写入方向），Save 触发，条件 `FSrcBillType == 'SAL_SaleOrder' And FPlanFinishDate <> FPlanStartDate`；Formula=`F_ADKB_PlanResponseDate1`，SourceCommitFieldKey=`F_UNW_Date_qtr`，Cover 覆盖，Fallback=ClearValue；客户配置 FFORBIDSTATUS=A。销售订单扩展确认该目标字段名称为「生产回复交期」。生产单自身同名 Key `F_UNW_Date_qtr` 是「发货日期」，跨表单不能混淆。
 
 本次只读取配置，未编辑保存业务单据，未实测空值、条件失效回退及多张生产订单覆盖顺序。复用前重新取配置；接口 Save 是否执行客户端字段更新不可由配置存在直接推定。
+
+## 科目（`BD_Account`）审核服务插件：新增 `5101.*` 自动同步至费用引入方案（2026-11-10 端到端实测）
+
+- **背景与原因**：`CB_EXPENSEIMPSOLUTION`（费用引入方案）的「总账科目（`FACCOUNTID`）」为多选基础资料字段（`MulBaseDataField`，物理子表 `T_CB_EXPENSEIMPSLUACCT`，分录实体标识 `FEntity` / `EXPENSEIMPSLUENTRY`），存储具体科目的 `FACCTID` 清单而非编码前缀。在 `BD_Account` 新增 `5101.*`（制造费用）下级科目时，标准系统不会自动将其加入已审核的费用引入方案。
+- **BOS IronPython 客户端预检与服务端执行三大坑（2026-11-10 实测验证）**：
+  1. **客户端缺少服务端 DLL vs 服务端函数内禁止 `from ... import *`**：
+     - 在 BOSIDE 客户端编写「服务插件（OperationServicePlugIn）」Python 脚本并点击「确定」时，客户端 IronPython 会在本地执行模块顶层语句做语法预检。客户端目录不含服务端专用的 `Kingdee.BOS.App.dll`、`Kingdee.BOS.ServiceHelper.dll`，若在顶层裸写 `clr.AddReference('Kingdee.BOS.App')` 会弹窗报错 `Could not add reference to assembly ...`。
+     - **但绝不能将 `clr.AddReference` 与 `from ... import *` 放进 `def EndOperationTransaction(e):` 函数体内**！在函数体内执行 `from ... import *` 会导致服务端 IronPython 解释器在运行时抛出 `System.ArgumentOutOfRangeException: 索引超出范围。必须为非负值并小于集合大小。参数名: index`。
+     - **可靠写法**：在模块顶层用 `try: ... except: pass` 包裹服务端专用程序集的加载与导入（`Kingdee.BOS.App`、`Kingdee.BOS.Contracts`、`Kingdee.BOS.ServiceHelper`）；同时注意 `DynamicObject` 所在的真实命名空间为 `from Kingdee.BOS.Orm.DataEntity import *`（而非 `Kingdee.BOS.DataEntity.DynamicObject`，否则在 `try` 块中抛 `ImportError` 会跳过后续的 `from Kingdee.BOS.ServiceHelper import *`）。
+  2. **`from Kingdee.BOS import *` 覆盖泛型 `List` 的坑**：
+     - `Kingdee.BOS` 命名空间下存在子命名空间 `Kingdee.BOS.List`。若先写 `from System.Collections.Generic import List` 再写 `from Kingdee.BOS import *`，`List` 会被覆盖为命名空间对象（`namespace#`），导致后续调用 `List[object]()` 报错 `Microsoft.Scripting.ArgumentTypeException: expected str, got type` / `got namespace#`。
+     - **可靠写法**：`from System.Collections.Generic import List` **必须放在 `from Kingdee.BOS import *` 之后**。
+  3. **`T_CB_EXPENSEIMPSLUENTRY.FEXPENSEITEMID` 外键与序列名注意事项**：
+     - `T_CB_EXPENSEIMPSLUENTRY.FEXPENSEITEMID`（如 `150505` `CI001 制造费用`）关联的是费用项目表 `T_BD_EXPENSE`，而非成本项目表 `T_HS_COSTITEM`；在 SQL 中直接按 `s.FNUMBER = 'SCFYYRFA0002' AND e.FENTRYID = 100003` 定位目标分录最为稳妥。
+     - `DBServiceHelper.GetSequenceInt32(this.Context, tableName, count)` 的第二个参数传入表名时系统会自动加上 `Z_` 前缀，因此对 `T_CB_EXPENSEIMPSLUACCT` 应传 `"CB_EXPENSEIMPSLUACCT"` 或 `"T_CB_EXPENSEIMPSLUACCT"`（传 `"Z_CB_EXPENSEIMPSLUACCT"` 会访问 `Z_Z_CB_EXPENSEIMPSLUACCT`）。
+     - 通过 WebAPI `Save` 更新 `CB_EXPENSEIMPSOLUTION` 的单据体分录时，分录实体 Key 为 `FEntity`（主键字段 `FEntryID`），而非 `View` 返回的 `EXPENSEIMPSLUENTRY`。
+- **已验证落库元数据（2026-11-10）**：
+  - 扩展对象 `FID='a982ba3a-9d03-4d3d-bf23-024c20ff11ae'`（`FBASEOBJECTID='BD_Account'`，`FDEVTYPE=2`），在操作 `Audit`（`oid='ad221364-f04e-4b31-8a69-debd8f5066bc'`）的 `<ServicePlugins>` 下注册 Python 插件 `自动同步5101科目至费用引入方案`（`PlugInType=1`）。
+  - 端到端实测：新建临时科目 `5101.98`（启用 `HSWD03_SYS` 部门维度）并调用 `Audit`，插件自动将 `SCFYYRFA0002`（`FIMPSLUID=154955`、`FENTRYID=100003`）反审核、追加 `5101.98`、保存、提交并重审恢复 `DocumentStatus='C'`；验证后已将临时科目从 `SCFYYRFA0002` 移除并删除测试科目，账套恢复 31 个科目的清洁基线。
+
+## 销售订单明细备注跨单同步服务插件（`SAL_SaleOrder` → `PRD_MO` / `SFC_OperationPlanning`，2026-11-17 实测）
+
+- **BOSIDE「插件配置信息」UI 操作坑**：在操作编辑 → 「其他控制」 → 「服务插件」弹出的「插件配置信息」表格中，选中已有标准插件行时，右侧 `注册Python脚本` 按钮保持灰显；必须**选中表格最底部的 `*` 空白新行**，`注册Python脚本` 才会高亮激活。粘贴保存后，BOSIDE 元数据 XML 中会过滤顶部 docstring 与部分行内 `#` 注释，不影响编译执行。
+- **已审核下游直接保存可行性**：`SAL_SaleOrder`（扩展 `69908226-8196-4f5a-b1a5-5b135f6c1172`）的 `Save` 操作挂载 Python 服务插件（`PlugInType=1`，候选源码见 `scripts/tools/sync_so_note_to_mo_sfc.py`）后，已实测验证完整事务钩子与跨单写回路径：
+  1. `OnPreparePropertys` 注册 `FBillNo`、`FDocumentStatus`、`FEntryNote`；`BeginOperationTransaction` 在保存写入提交前按线程 ID 读取 `T_SAL_ORDERENTRY.FNOTE` 旧值；`EndOperationTransaction` 仅对 `_norm(old) != _norm(new)` 的既有分录触发下游查询，未变更保存及未改备注的分录不会误触发下游写操作。
+  2. **前置解锁生效后无需反审核下游**：在 BOSIDE 分别对 `PRD_MO`（扩展 `e06699e2`）与 `SFC_OperationPlanning`（扩展 `b6654973`）放开目标字段的状态锁定（`IsControl=False`，且库表 `T_SFC_OPERPLANNING.F_UNW_TEXT_QTR` 已扩至 `nvarchar(2000)`）后，插件在服务端调用 `MetaDataServiceHelper.Load` + `BusinessDataServiceHelper.LoadSingle` + `BusinessDataServiceHelper.Save` 可直接保存已审核（`C`）的 `PRD_MO`（实测覆盖业务状态 `4 开工` 与 `5 完工` 分录的 `F_UNW_Text_qtr1`）与已审核 `SFC_OperationPlanning`（`F_UNW_Text_qtr` 与多语言 `Description`），同步写入 `OperateResult` 提示。
+  3. **多语言字段 `FDescription` 赋值要点**：`SFC_OperationPlanning` 的表头备注 `FDescription`（`PropertyName=Description`）为 `LocaleValue` 多语言对象，须读取 `lv = sfc_obj["Description"]`（为空时 `LocaleValue()`）后设置 `lv[2052] = new_raw`，不能直接赋字符串。
+  4. **WebAPI 局部修改销售订单分录备注写法**：在 `DynamicFormService.Save` 传 `NeedUpDateFields: ["FEntryNote"]`、`IsDeleteEntry: false`、`Model: { FID, FSaleOrderEntry: [{ FEntryID, FEntryNote }] }`，实测在已审核（`C`）状态可仅修改指定分录备注且保留其余分录数量与内容不变。
+- **未测覆盖范围**：本次在受控真实订单分录上验证了「无变更保存」「首次改字触发同步」「二次改字覆盖同步并还原」，未单独消耗正式流水号执行 `FID=0` 新建订单保存；代码逻辑已按 `eid > 0` 过滤新建行，仍建议后续关注新单建单场景的表现与潜在长备注超 255 字符边界（当前 `T_SAL_ORDERENTRY.FNOTE` 与 `T_SFC_OPERPLANNING_L.FDESCRIPTION` 均为 `nvarchar(255)`）。
+
+## 自定义基础资料/单据 BOSIDE 运维与 WebAPI 协作要点（2026-11-20 实测）
+
+1. **BOSIDE 与 WebAPI 同账号会话互斥（`403 NO01`）**：同账号经 `AuthService.ValidateUser` 登录 WebAPI 会踢出正在运行的 BOSIDE 会话；BOSIDE 打开期间自动化脚本须切换使用独立管理员账号（`K3_ADMIN_USERNAME`）。
+2. **V9.0 BOSIDE 云账号交互登录限制**：`Kingdee.BOS.IDE.exe` V9.0 在入口强制禁用无界面 `NoUILogin` 并走 `frmCloudLogin`，且当服务端 `isAllowCloudIDE=False` 时无网页设计器，须由人工完成云账号交互登录，严禁绕过认证。
+3. **受组织控制策略管理的自定义基础资料 WebAPI 保存前置**：启用基础资料组织控制并绑定权限对象后，未获该权限对象授权的非管理员调用 WebAPI `Save` 会报「使用组织/创建组织是必填项」；应以 `Administrator` 执行初始化写入，或先经 `SEC_FuncPermissionInfo` 赋权并重存 `SEC_User` 刷新缓存。
+4. **BOSIDE 自定义对象标准收尾清单**：保存建表后必须执行 `编辑(E) → 权限控制设置 → 初始化权限对象 → 操作权限控制 → 自动匹配` 并再次保存；发布到主控台须同时勾选 `桌面端` 与 `浏览器`（`T_META_CONSOLEDETAIL.FSTATUS='1'` 且 `FHTMLSTATUS='1'`，否则 Web HTML5 端不显示）；最后全部签入。

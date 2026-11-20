@@ -11,6 +11,7 @@
 - 新增员工（写操作）
 - 员工删除与替换姓名
 - 用户（账号）与员工的关联
+- 新增登录用户、分配角色与设置密码（2026-11-09 实证）
 
 
 ## 触发条件
@@ -81,7 +82,7 @@ bun scripts/tools/create_employee.js --name ... --dept BM000014 --post GW000046 
 
 - **部门/职位必须写进分录 `FPostEntity`**，只写表头会建出「没有任职记录」的员工（列表里显示无部门）。分录字段键：`FPost`(职位)、`FPostDept`(部门)、`FStaffStartDate`、`FIsFirstPost`、`FWorkOrgId`。**注意是 `FPost` 不是 `FPostId`**（表头另有同名 `FPostId`，容易混）。
 - 分录实体键从元数据 `T_META_OBJECTTYPE.FKERNELXML` 的 `OperationObjectKey` 确认：`FPostEntity`。
-- **编码自动取号**：规则 `YG`+5 位，计数器在 `T_BAS_BILLCODES.FNUMMAX`（`FRULEID` 见 `T_BAS_BILLCODERULE` 中 `FBILLFORMID='BD_Empinfo'`）。Save **不要传 `FNumber`**，否则可能与自动号冲突。
+- **编码自动取号**：规则 `YG`+5 位，计数器在 `T_BAS_BILLCODES.FNUMMAX`（`FRULEID` 见 `T_BAS_BILLCODERULE` 中 `FBILLFORMID='BD_Empinfo'`）。Save **不要传 `FNumber`**，否则可能与自动号冲突；若此前有操作手工传入过 `FNumber` 导致 `T_BAS_BILLCODES.FNUMMAX` 落后于实际最大 `YG` 编号（2026-11-19 实证：`YG00083` 已被占用而 `FNUMMAX` 仍为 82），首次不传 `FNumber` 保存会报编码重复并将 `FNUMMAX` 推进 +1（推进至 83），只读核对 `T_BAS_BILLCODES` 与最大编号后再次不传 `FNumber` 保存即可取到下一空闲号（`YG00084`），无需手工指定 `FNumber` 或 SQL 改计数器。
 - 流程：`Save` → `Submit` → `Audit`。Save 成功后必须独立 `View` 回查 `PostEntity` 的部门/职位/开始日期，确认写对了再提交审核；不确定就停在草稿。
 - 保存后 Save 响应里的 `DocumentStatus` 是 `undefined`，要另用 `View`/`ExecuteBillQuery` 读状态。
 - 建员工前先按 `FName` 查重；同名重入职属正常现象，但需人工确认后再建。
@@ -196,6 +197,7 @@ FROM T_BAS_USERLOGINRECORD WHERE FUSERID=<内码> ORDER BY FDATETIME DESC;
 - `SEC_KDRoles`标准Save服务会同步用户组织角色映射，本次已通过独立View用户/角色以及 `T_SEC_ROLEUSER`、`T_SEC_USERORG`、`T_SEC_USERROLEMAP`复查。必须确认仅移除目标配对，其余用户与角色分录原值保留、用户组织范围与许可分组未变。
 - 用户侧嵌套模型 `SEC_User/FOrgInfo/FRoleInfo` 本次先返回成功但关联不变，空更新白名单重试后又对所有原角色报“不存在”；原因尚未完整验证，不作为可用方案。不要把保存成功当成移除成功；失败脚本 `scripts/scratch/2026-10/remove-sunmengyu-warehouse-role.js` 已拦截apply。
 - 成功案例：业务员ATK03775仅移除仓管员SCM06_SYS，保留其余5角色，其他12个账号的仓管员关联不变。脚本 `scripts/scratch/2026-10/remove-sunmengyu-warehouse-via-role.js` 默认dry-run；证据 `output/sunmengyu-remove-warehouse-via-role-before/save/after-2026-10-15.json`（三个独立文件）。人数与角色是当日快照，复用重新查询。
+- **清空角色全部成员（使其 0 人使用，保留角色定义，2026-11-12 实证）**：对 `SEC_KDRoles` 直接传空 `FEntityUser: []` 会对唯一成员返回假成功而不清除（见同目录 `permission-data-scope-investigation.md`）。当待清空角色包含多名启用及已禁用成员时，采用两步法：① 先用 `SEC_KDRoles` Save（`NeedUpDateFields: ['FEntityUser']`, `IsDeleteEntry: true`）仅保留 1 名启用成员的原 `{ FEntityID }`，一次性移除其余全部启用及禁用成员；② 再对该最后 1 名启用成员调用 `SEC_User` Save（`FOrgInfo` 仅带原 `{ FEntityID }`，`FRoleInfo` 仅保留除目标角色外的原 `{ FDetailID }`，`NeedUpDateFields: []`, `IsDeleteEntry: true`）移除最后一条关联。执行后双通道复查 `SEC_KDRoles` View、`T_SEC_ROLEUSER` 与 `T_SEC_USERROLEMAP` 均为 0 行且无孤儿映射残留。
 
 ### 用户许可分组（是不是"专业应用组"）
 
@@ -229,4 +231,29 @@ FROM T_BAS_USERLOGINRECORD WHERE FUSERID=<内码> ORDER BY FDATETIME DESC;
 - 元数据 `SEC_User` 的 GroupField 明确 Key/PropertyName 为 `FPRIMARYGROUP`、关联表为 `T_SEC_USERGROUP`。最小保存已验证：`saveBill('SEC_User', { FUserID: id, FPRIMARYGROUP: { FID: groupId } }, ['FPRIMARYGROUP'], ['FUserID','FPRIMARYGROUP'])`；View 回查 `FPRIMARYGROUP_Id` 与 `FPRIMARYGROUP.Number`，再用数据库只读独立核对。
 - 默认 dry-run；已是目标值直接跳过。批处理中如返回“使用业务单据：用户…业务操作冲突，请稍候再使用”，立即停止，先只读盘点已成功及未改对象，请占用者保存并关闭对应用户编辑窗口，不清锁、不用 SQL 绕过、不盲目重试。恢复前重新查询，跳过已完成对象。
 - 当日案例：刘栋梁 TK01304 从跟单组移至国内部成功；陶葆 TK00338 原已在国内部；随后刘晓丽 TK00472 因 Administrator 编辑冲突未保存，后续三人未执行。此为部分完成快照，不代表后续状态。证据：`scripts/scratch/2026-10/change-six-user-departments.js`、`output/user-department-2026-10-15-apply.json`；复用须重查。不得把完整 SEC_User View 写入日志或工件，只记录本次必要字段。
-- 同日续办结果：用户关闭刘晓丽编辑窗口后，重新 dry-run 与实时前值核对，再执行剩余四人保存成功。WebAPI View 与数据库独立回查全部六人：国内部为刘栋梁、刘晓丽、陶葆、沈君梅，国际部为商务员A、覃琼燕。最终证据 `output/user-department-2026-10-15-verified.json`；上条部分完成记录保留为历史过程。
+- 同日续办结果：用户关闭刘晓丽编辑窗口后，重新 dry-run 与实时前值核对，再执行剩余四人保存成功。WebAPI View 与数据库独立回查全部六人：国内部为刘栋梁、刘晓丽、陶葆、沈君梅，国际部为宋金梅、覃琼燕。最终证据 `output/user-department-2026-10-15-verified.json`；上条部分完成记录保留为历史过程。
+
+## 新增登录用户、分配角色与设置密码（2026-11-09 实证）
+
+1. **先建员工再建用户**：新增员工（`BD_Empinfo`）不会自动生成 `SEC_User` 登录账号；先用 `scripts/tools/create_employee.js` 创建并审核员工，取得员工编码（如 `YG00082`）与人员内码（`FPERSONID`）。
+2. **新建 `SEC_User` 基础模型**：
+   - 必填与常用字段：`FUserAccount`（登录账号，如 `TK4441`）、`FName`（用户名称）、`FType: "1"`、`FUserType: "1"`、`FPRIMARYGROUP: { FID: <用户组内码> }`、`FLinkObject: { FNumber: "<员工编码>" }`、`FOrgId: { FNumber: "100" }`、`FAppGroup: "Pro"`（专业应用组）。
+   - **嵌套角色分录限制**：新建 `SEC_User` 时即便传入 `FOrgInfo[].FRoleInfo`，标准 `DynamicFormService.Save` 只生成组织行（`T_SEC_USERORG`），不会写入角色映射（`T_SEC_ROLEUSER` 与 `T_SEC_USERROLEMAP` 均为空）。不要假设用户侧嵌套角色分录在新建时生效。
+3. **通过 `SEC_KDRoles` 追加用户的正确写法**：
+   - 表单 `SEC_KDRoles` 的 `Save` 服务插件会按传入的 `FEntityUser` 完整重建该角色在 `T_SEC_ROLEUSER` 和 `T_SEC_USERROLEMAP` 的映射。
+   - **关键坑**：追加新用户时，保留的既有成员分录必须**同时携带分录主键与用户内码** `{ FEntityID: u.Id, FUserId: { FUserID: Number(u.UserId_Id) } }`，并且 `NeedUpDateFields: []`、`IsDeleteEntry: false`、`Model` 带上 `FRoleID` 与 `FNumber`。若旧分录只传 `{ FEntityID: u.Id }` 而不传 `FUserId`，服务插件会将旧分录的 `FUserId` 当作 0 跳过，导致新用户也无法落入 `T_SEC_ROLEUSER`（与移除单一用户时 `IsDeleteEntry: true` 的行为不同）。
+4. **设置用户密码（`SEC_ResetPassword`）**：
+   - `SEC_User` 的 `UserManagePlugIn.BeforeSave` 在编辑已有用户时会将 `FPassword` 清空；本账套 `SEC_PasswordPolicy` 默认密码为 `888888`（要求长度 ≥ 6 且含数字）。
+   - 需要指定密码（如 `123456`）时，先从 `T_SEC_USER.FMEMO`（或 `SEC_User` View 的 `Salt`）读取用户的盐值，再调用 `DynamicFormService.Save` 保存表单 `SEC_ResetPassword`，模型为 `{ FUserID: <用户内码>, FNewPassword: "<新密码>", FConfirmPassword: "<新密码>", FMemo: "<Salt>" }`。
+   - 保存后用新账号与新密码调用 `AuthService.ValidateUser` 实测登录（注意 `K3CloudWebAPI` 构造函数不接收参数，实测时实例化后设置 `api.username` 与 `api.password` 再调 `login()`）。
+5. **刷新权限缓存**：分配角色后，按现行约定调用 `SEC_User` 保存 `{ FUserID: <用户内码> }`（`NeedUpDateFields: []`、`IsDeleteEntry: false`）。
+6. **新建岗位（`HR_ORG_HRPOST`）与追加销售员及销售组（`BD_Operator`）（2026-11-09 实证）**：
+   - **新建岗位**：表单 `HR_ORG_HRPOST`（主表 `T_ORG_POST`、子头 `T_ORG_HRPOST`），Save 模型带 `FCreateOrgId: { FNumber: "100" }`、`FUseOrgId: { FNumber: "100" }`、`FNumber`（如 `GW000064`）、`FName`、`FDept: { FNumber: "<部门编码>" }`、`FEffectDate`、`FLapseDate: "9999-12-31"`、`FHRPostSubHead: { FLEADERPOST: false }`，保存后调用 `submitBill` + `auditBill` 审核生效。
+   - **追加销售员与所属销售组（`BD_Operator`）**：
+     - 销售员（`FOPERATORTYPE='XSY'`）在 `BD_Operator` 中是表头主键 `FOperatorId = 100003` 的单体单据，分录键 `FEntity`（View 为 `BD_OPERATORENTRY`），业务组子单据体键 `FBD_OPERATORDETAILS`（View 为 `BD_OPERATORDETAILS`，底层表 `T_BD_OPERATORDETAILS` 的主键列是 `FSUBENTRYID`）。
+     - **关键坑 1（表头主键键名）**：`BD_Operator` 的表头主键字段键名是 **`FOperatorId`**，不是 `FID`！若在 `Model` 中误传 `FID: 100003`，WebAPI 会忽略 `FID` 并新建一张多余的 `T_BD_OPERATOR` 表头记录。
+     - **关键坑 2（保留既有分录避免触发多默认业务组校验报错）**：`BD_Operator` 中部分历史业务员分录无默认业务组，若在追加新业务员时重传既有分录的 `FBD_OPERATORDETAILS` 子表，会触发系统校验报错 `默认业务组只能有一个！`。正确做法是：对既有分录**仅传 `{ FEntryID: e.Id }`**（不重传字段与子表），仅对新增行传入完整分录 `{ FOperatorType_ETY: "XSY", FBizOrgId: { FNumber: "100" }, FStaffId: { FSTAFFID: <任岗FSTAFFID> }, FNumber: "<员工编码>_<岗位编码>_1", FName: "<姓名>", FIsUse: true, FForbiddenStatus: "0", FBD_OPERATORDETAILS: [{ FOperatorGroupId: { FNumber: "<销售组编码>" }, FIsDefault: true/false }, ...] }`，且顶层设置 `NeedUpDateFields: []`、`IsDeleteEntry: false`、`IsVerifyBaseDataField: false`。
+   - **批量同步 `SEC_FuncPermissionInfo` 的 `FEntityBaseDataPer` 坑**：底层表 `T_SEC_FUNCPERBASEDATARULEENTRY.FSTATUS` 是 `CHAR(1)`，通过 WebAPI 保存 `FEntityBaseDataPer` 时**不要传布尔值 `FStatus: true/false`**（会被序列化为 4 字符导致 SQL 截断报错），仅传 `{ FBaseDataObjectTypeID: { FID: "<基础资料对象ID>" }, FDataRuleID: "<规则ID>" }` 即可。
+7. **证据**：
+   - 2026-11-09 新建员工唐菲（`YG00082`，`FID=938882`）与账号 `TK4441`（`FUserID=938886`），分配 `OEM跟单 (855125)` 与 `全员角色 (110)`，替换周雪菲名下 5 家客户跟单员并禁用 `TK4370`。脚本 `scripts/scratch/2026-11/create-user-tangfei.js`、`scripts/scratch/2026-11/assign-roles-tangfei.js`、`scripts/scratch/2026-11/transfer-zhouxuefei-to-tangfei.js`；证据 `output/create-user-tangfei-tk4441-2026-11-09.json`、`output/assign-roles-tangfei-tk4441-2026-11-09.json`、`output/transfer-zhouxuefei-to-tangfei-2026-11-09.json`。
+   - 2026-11-09 新建内贸部岗位 `销售助理 (GW000064, FPOSTID=938922)`、员工 `周慧琳 (YG00083, FID=938923, FSTAFFID=938925)`，加入 `BD_Operator (100003)` 销售员（`FEntryID=938931`）并关联 4 个国内销售组（`TK001/TK002/TK006/TK010`），创建用户 `TK4204 (FUserID=938932)` 与独立角色 `国内销售助理 (DOM_SALES_ASSIST_V1, FROLEID=938933)`（同步 117 个普通对象权限并绑定 `XSGLY` 可看所属组客户规则）。脚本 `scripts/scratch/2026-11/create-user-zhouhuilin.js`；证据 `output/create-user-zhouhuilin-tk4441-2026-11-09.json` / `output/create-user-zhouhuilin-tk4204-2026-11-09.json`。
